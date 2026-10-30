@@ -1,9 +1,7 @@
-ILU AI STUDIO — FREE AI BACKGROUND REMOVAL UPDATE
+ILU AI STUDIO — ESRGAN AI ENHANCER UPDATE
 
-Upload the CONTENTS of this folder to the ROOT of your GitHub repository, replacing existing files. Do not upload the outer folder as a nested folder.
+Upload the contents of this ILU_AI_STUDIO folder to the same GitHub Pages folder, replacing the old files. Keep sw.js, manifest.webmanifest and icon.svg alongside index.html.
 
-AI Background Remover: uses the open-source @imgly/background-removal browser package loaded from esm.sh. It downloads its model on first use and requires internet. Processing runs in the browser; no paid API key is included. Large photos may fail on phones with limited memory. Start with a JPG/PNG under 5 MB.
+New feature: whole-photo ESRGAN-Slim 2x AI super-resolution through UpscalerJS and TensorFlow.js. The libraries/model download from jsDelivr on first use. Inference runs in the browser; photos are not sent to a processing server. No API key or payment is used.
 
-After committing files, wait a few minutes. Open the GitHub Pages site in a private/incognito tab or clear site data/reload to avoid an old cached page.
-
-Other tools: basic editor, local auto-level/contrast enhancement (not generative AI), and conventional 2x/4x resizing (not AI super-resolution). Face restoration and object removal are not included.
+This is genuine AI super-resolution, not a guaranteed Remini-equivalent face restoration system. Results vary by input photo. iPhone memory limits may require a smaller input image. Background removal is retained.
