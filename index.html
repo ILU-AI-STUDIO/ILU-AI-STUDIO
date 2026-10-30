@@ -91,7 +91,58 @@ function canvasBlob(canvas){return new Promise((resolve,reject)=>canvas.toBlob(b
 function downloadBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000)}
 let aiEnhanceFile=null,aiEnhanceBlob=null,aiUpscaler=null,aiModelLoading=null;
 $('enhanceFile').onchange=()=>{const f=$('enhanceFile').files[0];if(!f)return;aiEnhanceFile=f;aiEnhanceBlob=null;$('enhancePreview').src=URL.createObjectURL(f);$('enhancePreview').style.display='block';$('enhanceEmpty').style.display='none';$('enhanceRun').disabled=false;$('enhanceDownload').disabled=true;$('enhanceStatus').textContent=`Photo ready: ${(f.size/1048576).toFixed(1)} MB. Tap AI Enhance.`};
-async function loadESRGAN(){if(aiUpscaler)return aiUpscaler;if(aiModelLoading)return aiModelLoading;aiModelLoading=(async()=>{const addScript=(url)=>new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=url;s.onload=resolve;s.onerror=()=>reject(new Error('Could not load AI library from CDN. Check internet and retry.'));document.head.appendChild(s)});if(!window.tf)await addScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');if(!window.ESRGANSlim2x)await addScript('https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@1.0.0/dist/umd/2x.min.js');if(!window.Upscaler)await addScript('https://cdn.jsdelivr.net/npm/upscaler@1.0.0/dist/browser/umd/upscaler.min.js');if(!window.ESRGANSlim2x||!window.Upscaler)throw new Error('AI model library did not initialize. Reload and retry.');aiUpscaler=new window.Upscaler({model:window.ESRGANSlim2x});return aiUpscaler})();try{return await aiModelLoading}catch(e){aiModelLoading=null;throw e}}
+async function loadESRGAN(){
+  if(aiUpscaler) return aiUpscaler;
+  if(aiModelLoading) return aiModelLoading;
+
+  aiModelLoading=(async()=>{
+    const loadScript=(url)=>new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src=url;
+      s.crossOrigin='anonymous';
+      s.onload=resolve;
+      s.onerror=()=>reject(
+        new Error('AI library CDN blocked. Check internet or try again.')
+      );
+      document.head.appendChild(s);
+    });
+
+    if(!window.tf){
+      await loadScript(
+        'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js'
+      );
+    }
+
+    if(!window.ESRGANSlim2x){
+      await loadScript(
+        'https://cdn.jsdelivr.net/npm/@upscalerjs/esrgan-slim@latest/dist/umd/2x.min.js'
+      );
+    }
+
+    if(!window.Upscaler){
+      await loadScript(
+        'https://cdn.jsdelivr.net/npm/upscaler@latest/dist/browser/umd/upscaler.min.js'
+      );
+    }
+
+    if(!window.ESRGANSlim2x || !window.Upscaler){
+      throw new Error('ESRGAN model failed to initialize.');
+    }
+
+    aiUpscaler=new window.Upscaler({
+      model:window.ESRGANSlim2x
+    });
+
+    return aiUpscaler;
+  })();
+
+  try{
+    return await aiModelLoading;
+  }catch(e){
+    aiModelLoading=null;
+    throw e;
+  }
+}
 $('enhanceRun').onclick=async()=>{if(!aiEnhanceFile)return;const btn=$('enhanceRun');btn.disabled=true;$('enhanceDownload').disabled=true;try{$('enhanceStatus').textContent='Loading TensorFlow.js and ESRGAN AI model… first run may take a few minutes.';const upscaler=await loadESRGAN();$('enhanceStatus').textContent='AI is rebuilding image detail and upscaling the full photo 2×. Keep this page open…';const source=await fileToImage(aiEnhanceFile);const result=await upscaler.upscale(source,{output:'base64'});const blob=await (await fetch(result)).blob();if(!blob||!blob.size)throw new Error('AI model returned an empty image.');aiEnhanceBlob=blob;$('enhancePreview').src=URL.createObjectURL(blob);$('enhanceDownload').disabled=false;const out=await fileToImage(blob);$('enhanceStatus').textContent=`AI enhancement complete · ${out.naturalWidth} × ${out.naturalHeight}px · ESRGAN 2×.`}catch(e){console.error(e);$('enhanceStatus').textContent='AI enhancement failed: '+(e.message||'unknown error')+'. Try a smaller photo (under 5 MB), keep Safari open, and check internet.'}finally{btn.disabled=false}};
 $('enhanceDownload').onclick=()=>aiEnhanceBlob&&downloadBlob(aiEnhanceBlob,'ilu-esrgan-ai-enhanced.png');
 $('upFile').onchange=()=>{const f=$('upFile').files[0];if(!f)return;fileToImage(f).then(im=>{upImage=im;$('upRun').disabled=false;$('upStatus').textContent=`Ready: ${im.naturalWidth} × ${im.naturalHeight}px`}).catch(e=>$('upStatus').textContent=e.message)};
