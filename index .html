@@ -39,4 +39,19 @@ function renderEditor(){if(!editImage)return;const c=document.createElement('can
 ['brightness','contrast','saturation'].forEach(id=>$(id).addEventListener('input',renderEditor));$('rotate').addEventListener('click',()=>{editRotation=(editRotation+90)%360;renderEditor()});$('flip').addEventListener('click',()=>{editFlip=!editFlip;renderEditor()});$('editDownload').addEventListener('click',async()=>{if(!editImage)return;const c=document.createElement('canvas'),rot=editRotation%180!==0;c.width=rot?editImage.naturalHeight:editImage.naturalWidth;c.height=rot?editImage.naturalWidth:editImage.naturalHeight;const x=c.getContext('2d');x.translate(c.width/2,c.height/2);x.rotate(editRotation*Math.PI/180);x.scale(editFlip?-1:1,1);x.filter=`brightness(${$('brightness').value}%) contrast(${$('contrast').value}%) saturate(${$('saturation').value}%)`;x.drawImage(editImage,-editImage.naturalWidth/2,-editImage.naturalHeight/2);download(await blobFromCanvas(c),'ilu-edited.jpg')});
 // 2x upscale
 bindPhotoInput('upFile',async f=>{upFile=f;upBlob=null;$('upRun').disabled=true;$('upDownload').disabled=true;showImage('upPreview','upEmpty',URL.createObjectURL(f));await readFile(f);$('upRun').disabled=false;status('upStatus','Photo ready. Tap Upscale 2×.','good')},'upStatus');$('upRun').addEventListener('click',async()=>{if(!upFile)return;try{$('upRun').disabled=true;status('upStatus','Creating 2× image…');const im=await readFile(upFile);const max=6000,scale=Math.min(2,max/Math.max(im.naturalWidth,im.naturalHeight));const c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*scale);c.height=Math.round(im.naturalHeight*scale);const x=c.getContext('2d');x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.drawImage(im,0,0,c.width,c.height);upBlob=await blobFromCanvas(c);showImage('upPreview','upEmpty',URL.createObjectURL(upBlob));$('upDownload').disabled=false;status('upStatus',`Done · ${c.width} × ${c.height}.`,'good')}catch(e){status('upStatus',e.message,'bad')}finally{$('upRun').disabled=!upFile}});$('upDownload').addEventListener('click',()=>download(upBlob,'ilu-upscaled-2x.jpg'));
-</script></body></html>
+</script>
+
+<section id="family-safety" style="padding:20px;margin:20px auto;max-width:500px;background:#171717;color:white;border-radius:15px;">
+  <h2>Family Safety</h2>
+  <p>Private Location Sharing</p>
+
+  <button id="parentLogin">Parent Login</button>
+  <button id="childShare">Share My Location</button>
+  <button id="stopShare">Stop Sharing</button>
+
+  <p id="familyStatus">Not connected</p>
+  <p id="familyLocation"></p>
+</section>
+
+</body>
+</html>
