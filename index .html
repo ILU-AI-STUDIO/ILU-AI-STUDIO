@@ -53,5 +53,62 @@ bindPhotoInput('upFile',async f=>{upFile=f;upBlob=null;$('upRun').disabled=true;
   <p id="familyLocation"></p>
 </section>
 
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDfBB5LGdeITukTp-ilAXjwJgg5zRVkuak",
+  authDomain: "ilu-family-safety.firebaseapp.com",
+  databaseURL: "https://ilu-family-safety-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ilu-family-safety",
+  storageBucket: "ilu-family-safety.firebasestorage.app",
+  messagingSenderId: "1063989341124",
+  appId: "1:1063989341124:web:14f85501d66d3d72751291"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const status = document.getElementById("familyStatus");
+const share = document.getElementById("childShare");
+const stop = document.getElementById("stopShare");
+
+let watchId = null;
+
+share.addEventListener("click", async () => {
+  try {
+    status.textContent = "Connecting...";
+    const result = await signInAnonymously(auth);
+    if (!navigator.geolocation) throw new Error("Location unavailable");
+
+    watchId = navigator.geolocation.watchPosition(async (pos) => {
+      const location = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        updatedAt: Date.now()
+      };
+
+      status.textContent = "Location permission active.";
+      document.getElementById("familyLocation").textContent =
+        "Location sharing is awaiting secure approval.";
+    }, (err) => {
+      status.textContent = "Location error: " + err.message;
+    }, { enableHighAccuracy: true, maximumAge: 5000 });
+
+  } catch (error) {
+    status.textContent = error.message;
+  }
+});
+
+stop.addEventListener("click", () => {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  status.textContent = "Location sharing stopped.";
+});
+</script>
+
 </body>
 </html>
