@@ -54,7 +54,7 @@ const $=id=>document.getElementById(id);let src=null,img=null,rotation=0,flipX=f
 const defaults={brightness:100,contrast:100,saturation:100,exposure:0,warmth:0,blur:0};
 function page(name){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===name));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>page(b.dataset.page));
-$('goEditor').onclick=()=>page('editor');$('goProjects').onclick=()=>{page('projects');renderProjects()};$('toEditor').onclick=()=>page('editor');
+$('goEditor').onclick=()=>page('editor');$('goProjects').onclick=()=>{page('projects');renderProjects()};if ($('toEditor')) $('toEditor').onclick=()=>page('editor');
 function message(s){$('editorStatus').textContent=s}
 function state(){return {vals:Object.fromEntries(Object.keys(defaults).map(k=>[k,+$(k).value])),rotation,flipX,flipY,gray}}
 function applyState(s){Object.entries(s.vals).forEach(([k,v])=>$(k).value=v);rotation=s.rotation;flipX=s.flipX;flipY=s.flipY;gray=s.gray;updateLabels();render()}
