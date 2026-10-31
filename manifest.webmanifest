@@ -1,10 +1,1 @@
-{
-  "name": "ILU AI STUDIO",
-  "short_name": "ILU STUDIO",
-  "start_url": "./",
-  "scope": "./",
-  "display": "standalone",
-  "background_color": "#0b0d13",
-  "theme_color": "#10121a",
-  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
-}
+{"name":"ILU HD","short_name":"ILU HD","start_url":"./","scope":"./","display":"standalone","background_color":"#080b14","theme_color":"#080b14","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

@@ -1,16 +1,16 @@
-## Hi there 👋
+# ILU HD
 
-<!--
-**ILU-AI-STUDIO/ILU-AI-STUDIO** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+Personal static-site prototype. The old photo editor, enhancement, upscaler, background remover, and project pages have been removed from the main `index.html` experience.
 
-Here are some ideas to get you started:
+## Current functionality
+- Responsive ILU HD interface with black, electric-blue, and purple styling.
+- No login and no ads.
+- Attempts browser-side download of a direct, publicly accessible video file URL.
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+## Limitations
+- Instagram, YouTube, Facebook and other platform page URLs are not integrated in this version.
+- Many video hosts block cross-origin browser fetches (CORS). A reliable multi-platform service needs a server backend and platform-approved/authorized integrations. Do not claim universal support or guaranteed 1080p.
+- The browser cannot change the quality of the source video.
+
+## Publish
+Upload the contents of this folder to the existing GitHub Pages repository, replacing the old site files. Keep a backup of the original repository first. After deployment, on iPhone Safari refresh the page; if an installed PWA shows old content, remove it from Home Screen and add it again after the site updates.
