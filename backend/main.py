@@ -20,7 +20,7 @@ app.add_middleware(
 
 allowed_hosts = {
     x.strip().lower().rstrip(".")
-    for x in os.getenv("ALLOWED_HOSTS", "").split(",")
+    for x in os.getenv("ALLOWED_HOSTS", "").split(","
     if x.strip()
 }
 MAX_BYTES = int(os.getenv("MAX_DOWNLOAD_MB", "300")) * 1024 * 1024
