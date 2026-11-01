@@ -1,126 +1,45 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080b14">
-<meta name="description" content="ILU HD - your videos, your quality.">
-<link rel="manifest" href="manifest.webmanifest">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080b14"><meta name="description" content="ILU HD video downloader and media information">
 <title>ILU HD</title>
 <style>
 :root{color-scheme:dark;--bg:#080b14;--panel:#111827;--line:#29364d;--muted:#9eabc0;--blue:#36a4ff;--purple:#925cff}
-*{box-sizing:border-box}
-body{margin:0;min-height:100vh;padding:22px;background:radial-gradient(ellipse at 50% 0,#1a2850 0%,var(--bg) 58%);color:#f7f9ff;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center}
-main{width:min(680px,100%)}
-header{text-align:center;margin-bottom:26px}
-.logo{font-size:clamp(48px,12vw,72px);font-weight:950;letter-spacing:-5px;line-height:1;background:linear-gradient(100deg,#fff 10%,#58b7ff 52%,#a77aff 90%);background-clip:text;color:transparent}
-.tag{color:var(--muted);font-size:12px;letter-spacing:2px;margin-top:9px}
-.card{padding:clamp(20px,5vw,34px);border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#151f33f2,#0c122ff2);box-shadow:0 24px 80px #0008}
-h1{font-size:22px;margin:0 0 6px}
-.desc{color:var(--muted);font-size:13px;margin:0 0 24px}
-label{display:block;font-size:12px;font-weight:750;letter-spacing:1px;margin-bottom:9px;color:#cad7ec}
-.row{display:flex;gap:10px;flex-wrap:wrap}
-input{flex:1;min-width:0;padding:15px;border-radius:12px;border:1px solid #34435d;background:#080e1b;color:white;font:inherit;outline:none}
-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px #36a4ff22}
-button{border:0;border-radius:12px;padding:0 23px;min-height:52px;color:white;font-weight:800;background:linear-gradient(100deg,#168de8,#8052ef)}
-button:disabled{opacity:.5}
-.status{display:none;margin-top:16px;padding:13px;border-radius:12px;border:1px solid var(--line);font-size:13px;overflow-wrap:anywhere}
-.status.show{display:block}.status.error{border-color:#8f3947;color:#ffb9c2}.status.ok{border-color:#286b59;color:#a9f0d7}
-.hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:16px}
-.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
-.pill{border:1px solid #34435d;color:#c3d0e3;border-radius:999px;padding:7px 11px;font-size:11px}
-footer{text-align:center;color:#65748d;font-size:11px;margin-top:20px}
-@media(max-width:520px){.row{display:grid}button{width:100%}.card{border-radius:19px}}
-</style>
-</head>
-<body>
-<main>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:22px;background:radial-gradient(ellipse at 50% 0,#1a2850 0%,var(--bg) 58%);color:#f7f9ff;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center}
+main{width:min(720px,100%)}header{text-align:center;margin-bottom:26px}.logo{font-size:clamp(48px,12vw,72px);font-weight:950;letter-spacing:-5px;line-height:1;background:linear-gradient(100deg,#fff 10%,#58b7ff 52%,#a77aff 90%);background-clip:text;color:transparent}.tag{color:var(--muted);font-size:12px;letter-spacing:2px;margin-top:9px}
+.card{padding:clamp(20px,5vw,34px);border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#151f33f2,#0c122ff2);box-shadow:0 24px 80px #0008}h1{font-size:22px;margin:0 0 6px}.desc{color:var(--muted);font-size:13px;margin:0 0 24px}label{display:block;font-size:12px;font-weight:750;letter-spacing:1px;margin-bottom:9px;color:#cad7ec}
+.row{display:flex;gap:10px;flex-wrap:wrap}input{flex:1;min-width:0;padding:15px;border-radius:12px;border:1px solid #34435d;background:#080e1b;color:white;font:inherit;outline:none}input:focus{border-color:var(--blue);box-shadow:0 0 0 3px #36a4ff22}
+button{border:0;border-radius:12px;padding:0 23px;min-height:52px;color:white;font-weight:800;background:linear-gradient(100deg,#168de8,#8052ef)}button:disabled{opacity:.5}
+.status{display:none;margin-top:16px;padding:13px;border-radius:12px;border:1px solid var(--line);font-size:13px;overflow-wrap:anywhere}.status.show{display:block}.status.error{border-color:#8f3947;color:#ffb9c2}.status.ok{border-color:#286b59;color:#a9f0d7}
+.details{display:none;margin-top:16px;padding:16px;border:1px solid var(--line);border-radius:14px;background:#080e1b}.details.show{display:block}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}.item{padding:10px;background:#111a2b;border-radius:10px}.item small{display:block;color:var(--muted);font-size:11px}.item strong{overflow-wrap:anywhere}.actions{display:flex;gap:10px;flex-wrap:wrap}.secondary{background:#26364f}.hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:16px}.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}.pill{border:1px solid #34435d;color:#c3d0e3;border-radius:999px;padding:7px 11px;font-size:11px}footer{text-align:center;color:#65748d;font-size:11px;margin-top:20px}
+@media(max-width:520px){.row{display:grid}button{width:100%}.card{border-radius:19px}.grid{grid-template-columns:1fr}}
+</style></head><body><main>
 <header><div class="logo">ILU HD</div><div class="tag">YOUR VIDEOS. YOUR QUALITY.</div></header>
-<section class="card">
-<h1>Video Downloader</h1>
-<p class="desc">Paste a supported video URL. ILU HD will identify the source and check whether downloading is available.</p>
-<form id="form">
-<label for="url">VIDEO LINK</label>
-<div class="row">
-<input id="url" type="url" placeholder="https://example.com/video.mp4" required autocomplete="url">
-<button id="download" type="submit">Check link</button>
-</div>
-</form>
+<section class="card"><h1>Video Downloader</h1><p class="desc">Paste a supported direct video URL to check its details and download availability.</p>
+<form id="form"><label for="url">VIDEO LINK</label><div class="row"><input id="url" type="url" placeholder="https://example.com/video.mp4" required autocomplete="url"><button id="check" type="submit">Check link</button></div></form>
 <div id="status" class="status" role="status" aria-live="polite"></div>
-<div class="pills">
-<span class="pill">No login</span><span class="pill">No ads</span><span class="pill">iPhone + Android</span><span class="pill">Link detection</span>
-</div>
-<p class="hint">YouTube, Instagram and Facebook links can be identified, but their normal page links cannot currently be downloaded by this version. Direct video-file downloads work only for hostnames explicitly enabled by the site owner. Only download content you own or are authorized to save. Private or DRM-protected content is not supported.</p>
-</section>
-<footer>ILU HD · Personal edition</footer>
-</main>
+<section id="details" class="details" aria-live="polite"><h2 style="font-size:17px;margin:0">Video Information</h2><div class="grid">
+<div class="item"><small>File name</small><strong id="filename">-</strong></div><div class="item"><small>Format</small><strong id="format">-</strong></div><div class="item"><small>File size</small><strong id="size">Not provided</strong></div><div class="item"><small>Duration</small><strong id="duration">Not provided</strong></div></div>
+<div class="actions"><button id="download" type="button">Download video</button></div><p class="hint" id="note"></p></section>
+<div class="pills"><span class="pill">No login</span><span class="pill">No ads</span><span class="pill">iPhone + Android</span><span class="pill">Video information</span></div>
+<p class="hint">Only direct video-file links from hostnames enabled by the site owner are supported. Social media page links may be identified but are not automatically downloadable. Download only content you own or are authorized to save. Private or DRM-protected content is not supported.</p></section>
+<footer>ILU HD · Personal edition</footer></main>
 <script>
-const API_BASE = "https://ilu-ai-studio.onrender.com";
-const form = document.getElementById("form");
-const input = document.getElementById("url");
-const button = document.getElementById("download");
-const statusBox = document.getElementById("status");
-
-function showStatus(message, kind = "") {
-  statusBox.className = "status show" + (kind ? " " + kind : "");
-  statusBox.textContent = message;
-}
-
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  let target;
-  try {
-    target = new URL(input.value.trim());
-    if (target.protocol !== "https:") {
-      throw new Error("Please enter a valid HTTPS link.");
-    }
-    if (target.username || target.password) {
-      throw new Error("Links containing embedded usernames or passwords are not accepted.");
-    }
-  } catch (error) {
-    showStatus(error.message || "Please enter a valid video URL.", "error");
-    return;
-  }
-
-  button.disabled = true;
-  button.textContent = "Checking...";
-  showStatus("Connecting to ILU HD and identifying the link...");
-
-  try {
-    const inspectUrl = API_BASE + "/inspect?url=" + encodeURIComponent(target.href);
-    const response = await fetch(inspectUrl, { method: "GET" });
-    const result = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(result.detail || "Could not check this link. Please try again.");
-    }
-
-    if (result.platform === "youtube" || result.platform === "instagram" || result.platform === "facebook") {
-      showStatus(
-        result.platform.toUpperCase() + " link detected. " +
-        "Downloading from this platform is not enabled in this version. " +
-        "Only platform-approved integrations can be added; private or DRM-protected content is not supported.",
-        "error"
-      );
-      return;
-    }
-
-    if (result.platform === "direct_video_link" && result.download_available) {
-      showStatus("Direct video link recognized. Opening the secure download service...", "ok");
-      const downloadUrl = API_BASE + "/download?url=" + encodeURIComponent(target.href);
-      window.location.assign(downloadUrl);
-      return;
-    }
-
-    showStatus(result.message || "This video host is not enabled for downloads yet.", "error");
-  } catch (error) {
-    showStatus(error.message || "Could not connect to the ILU HD server. It may be waking from sleep; wait a moment and try again.", "error");
-  } finally {
-    button.disabled = false;
-    button.textContent = "Check link";
-  }
+const API_BASE="https://ilu-ai-studio.onrender.com";
+const form=document.getElementById("form"),input=document.getElementById("url"),check=document.getElementById("check"),statusBox=document.getElementById("status"),details=document.getElementById("details"),download=document.getElementById("download");
+let currentUrl="";
+function status(message,kind=""){statusBox.className="status show"+(kind?" "+kind:"");statusBox.textContent=message;}
+function bytes(n){if(n==null)return "Not provided";const u=["B","KB","MB","GB"];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return v.toFixed(i?2:0)+" "+u[i];}
+form.addEventListener("submit",async e=>{e.preventDefault();details.classList.remove("show");let target;try{target=new URL(input.value.trim());if(target.protocol!=="https:"||target.username||target.password)throw Error("Enter a valid HTTPS video URL.");}catch(err){status(err.message||"Invalid URL.","error");return;}
+check.disabled=true;check.textContent="Checking...";status("Identifying link and checking video information...");
+try{const inspect=await fetch(API_BASE+"/inspect?url="+encodeURIComponent(target.href));const r=await inspect.json();if(!inspect.ok)throw Error(r.detail||"Could not inspect this link.");
+if(["youtube","instagram","facebook"].includes(r.platform)){status(r.message,"error");return;}
+if(!r.download_available){status(r.message||"This hostname is not enabled for downloads.","error");return;}
+const infoResponse=await fetch(API_BASE+"/info?url="+encodeURIComponent(target.href));const info=await infoResponse.json();if(!infoResponse.ok)throw Error(info.detail||"Video information is unavailable.");
+currentUrl=target.href;document.getElementById("filename").textContent=info.filename||"-";document.getElementById("format").textContent=info.format||"-";document.getElementById("size").textContent=bytes(info.size_bytes);document.getElementById("duration").textContent=info.duration||"Not provided";document.getElementById("note").textContent=info.note||"";details.classList.add("show");status("Supported direct video link. Video information loaded.","ok");
+}catch(err){status(err.message||"Could not connect to ILU HD. Wait a moment and try again.","error");}
+finally{check.disabled=false;check.textContent="Check link";}
 });
-</script>
-</body>
-</html>
+download.addEventListener("click",()=>{if(currentUrl)window.location.assign(API_BASE+"/download?url="+encodeURIComponent(currentUrl));});
+</script></body></html>
