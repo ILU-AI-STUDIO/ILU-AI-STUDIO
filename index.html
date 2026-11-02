@@ -238,11 +238,11 @@ footer{text-align:center;color:#64748b;font-size:11px;margin:22px 0 5px;letter-s
 </div>
 
 <p class="footer-note">
-Platform detection does not mean downloading is available. Vimeo downloads require an eligible account, an authorized API token and a download link supplied by Vimeo. Other social platforms remain detection-only until an official integration is available. Download only content you own or are authorized to save. Private and DRM-protected content is not supported.
+Platform detection does not mean downloading is available. Vimeo downloads require an eligible account, an authorized API token and a download link supplied by Vimeo. Twitch clip downloads require a Twitch user token with the required clip-download scope, and the configured account must be the broadcaster or an authorized channel editor. Other social platforms remain detection-only until an official integration is available. Download only content you own or are authorized to save. Private and DRM-protected content is not supported.
 </p>
 </section>
 
-<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.0.0</footer>
+<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.1.0</footer>
 </main>
 
 <script>
@@ -465,12 +465,17 @@ form.addEventListener("submit",async event=>{
   }else if(currentProvider==="vimeo"){
    document.getElementById("previewNote").textContent=
     "Vimeo file details are loaded through its official API. The signed download is requested when you tap Download.";
+  }else if(currentProvider==="twitch"){
+   document.getElementById("previewNote").textContent=
+    "Twitch clip details are loaded through its official API. The authorized signed download is requested when you tap Download.";
   }
 
   status(
    currentProvider==="vimeo"
     ?"Vimeo file information loaded. The official download link will be requested when you tap Download."
-    :"Supported direct video link. Video information loaded.",
+    :currentProvider==="twitch"
+     ?"Twitch clip information loaded. The official download link will be requested when you tap Download."
+     :"Supported direct video link. Video information loaded.",
    "ok"
   );
 
@@ -658,6 +663,18 @@ function downloadVimeoVideo(){
    DOWNLOAD BUTTON AND CANCELLATION
 ---------------------------------------------------------------- */
 
+function downloadTwitchVideo(){
+ const downloadUrl=API_BASE+"/download?url="+encodeURIComponent(currentUrl);
+ progressBox.classList.add("show");
+ document.getElementById("progressTitle").textContent="Opening official Twitch clip download...";
+ document.getElementById("percent").textContent="—";
+ progressFill.style.width="100%";
+ document.getElementById("downloadState").textContent="Handing off to Twitch";
+ document.getElementById("totalSize").textContent="Official temporary link";
+ status("Requesting the authorized Twitch clip file. Your browser will handle the download.","info");
+ window.location.assign(downloadUrl);
+}
+
 downloadBtn.addEventListener("click",async()=>{
  if(!currentUrl||downloading)return;
 
@@ -670,6 +687,10 @@ downloadBtn.addEventListener("click",async()=>{
 
  if(currentProvider==="vimeo"){
   downloadVimeoVideo();
+  return;
+ }
+ if(currentProvider==="twitch"){
+  downloadTwitchVideo();
   return;
  }
 
