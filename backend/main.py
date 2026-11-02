@@ -2,6 +2,7 @@ import ipaddress
 import os
 import re
 import socket
+import tempfile
 from html.parser import HTMLParser
 from urllib.parse import urljoin
 from urllib.parse import urlparse, unquote
@@ -9,10 +10,11 @@ from urllib.parse import urlparse, unquote
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, RedirectResponse
+from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
+from starlette.background import BackgroundTask
 
-VERSION = "3.5.0"
-USER_AGENT = "ILU-HD/3.5"
+VERSION = "3.6.0"
+USER_AGENT = "ILU-HD/3.6"
 VIMEO_API = "https://api.vimeo.com"
 
 app = FastAPI(title="ILU HD API", version=VERSION)
@@ -601,6 +603,164 @@ async def get_facebook_video(parsed) -> dict:
 
 
 # -------------------------------------------------------------------
+# LIMITED HLS SUPPORT (PUBLIC, UNENCRYPTED VOD MPEG-TS ONLY)
+# -------------------------------------------------------------------
+
+MAX_HLS_PLAYLIST_BYTES = 2 * 1024 * 1024
+MAX_HLS_SEGMENTS = 500
+
+
+def is_hls_url(parsed) -> bool:
+    return (parsed.path or "").lower().endswith(".m3u8")
+
+
+def parse_hls_media_playlist(text: str, playlist_url: str, playlist_host: str):
+    """Parse a deliberately narrow, unencrypted HLS VOD playlist.
+
+    Only ordinary MPEG-TS segment playlists are supported. Master playlists,
+    live playlists, encryption, byte ranges and fragmented-MP4 maps are rejected.
+    Every segment must be HTTPS and on the exact same hostname as the playlist.
+    """
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if not lines or lines[0] != "#EXTM3U":
+        raise HTTPException(status_code=415, detail="This is not a valid HLS playlist.")
+
+    forbidden_tags = (
+        "#EXT-X-KEY", "#EXT-X-SESSION-KEY", "#EXT-X-MAP",
+        "#EXT-X-BYTERANGE", "#EXT-X-DISCONTINUITY", "#EXT-X-PART",
+        "#EXT-X-PRELOAD-HINT", "#EXT-X-STREAM-INF", "#EXT-X-I-FRAME-STREAM-INF",
+    )
+    for line in lines:
+        if line.startswith(forbidden_tags):
+            raise HTTPException(
+                status_code=415,
+                detail=("This HLS playlist uses encryption, a master/variant playlist, "
+                        "fragmented MP4, byte ranges or unsupported stream features. "
+                        "Only unencrypted MPEG-TS VOD playlists are supported."),
+            )
+
+    if "#EXT-X-ENDLIST" not in lines:
+        raise HTTPException(
+            status_code=415,
+            detail="Live or unfinished HLS playlists are not supported; provide a completed VOD playlist.",
+        )
+
+    segment_urls = []
+    duration = 0.0
+    for line in lines:
+        if line.startswith("#EXTINF:"):
+            value = line.split(":", 1)[1].split(",", 1)[0]
+            try:
+                duration += max(0.0, float(value))
+            except ValueError:
+                pass
+        elif not line.startswith("#"):
+            absolute = urljoin(playlist_url, line)
+            segment_parsed, segment_host = parse_https_url(absolute)
+            if segment_host != playlist_host:
+                raise HTTPException(
+                    status_code=403,
+                    detail="HLS segments must use the same trusted hostname as the playlist.",
+                )
+            segment_urls.append(segment_parsed.geturl())
+            if len(segment_urls) > MAX_HLS_SEGMENTS:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"HLS playlist exceeds the {MAX_HLS_SEGMENTS}-segment limit.",
+                )
+
+    if not segment_urls:
+        raise HTTPException(status_code=415, detail="The HLS playlist contains no media segments.")
+    return segment_urls, round(duration, 2)
+
+
+async def get_hls_playlist(url: str, host: str):
+    validate_direct_host(host)
+    timeout = httpx.Timeout(15.0, connect=8.0)
+    async with httpx.AsyncClient(
+        timeout=timeout, trust_env=False, follow_redirects=False,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/vnd.apple.mpegurl,application/x-mpegURL,text/plain,*/*"},
+    ) as client:
+        try:
+            async with client.stream("GET", url) as response:
+                if response.status_code in (301, 302, 303, 307, 308):
+                    raise HTTPException(status_code=400, detail="Redirected HLS playlists are not supported.")
+                if response.status_code != 200:
+                    raise HTTPException(status_code=502, detail=f"HLS host returned HTTP {response.status_code}.")
+                chunks = []
+                total = 0
+                async for chunk in response.aiter_bytes():
+                    total += len(chunk)
+                    if total > MAX_HLS_PLAYLIST_BYTES:
+                        raise HTTPException(status_code=413, detail="HLS playlist is too large.")
+                    chunks.append(chunk)
+                body = b"".join(chunks)
+        except HTTPException:
+            raise
+        except httpx.HTTPError:
+            raise HTTPException(status_code=502, detail="Could not retrieve the HLS playlist.")
+
+    playlist_text = body.decode("utf-8-sig", errors="replace")
+    segments, duration = parse_hls_media_playlist(playlist_text, url, host)
+    return segments, duration
+
+
+async def download_hls_as_ts(url: str, host: str):
+    """Fetch validated VOD TS segments and concatenate them into a .ts file."""
+    segments, duration = await get_hls_playlist(url, host)
+    temp = tempfile.NamedTemporaryFile(prefix="ilu-hd-", suffix=".ts", delete=False)
+    temp_path = temp.name
+    total = 0
+    timeout = httpx.Timeout(30.0, connect=10.0)
+
+    try:
+        with temp:
+            async with httpx.AsyncClient(
+                timeout=timeout, trust_env=False, follow_redirects=False,
+                headers={"User-Agent": USER_AGENT},
+            ) as client:
+                for segment_url in segments:
+                    _, segment_host = parse_https_url(segment_url)
+                    # Re-check DNS for each segment to avoid trusting stale or changed DNS.
+                    validate_public_host(segment_host)
+                    try:
+                        async with client.stream("GET", segment_url) as response:
+                            if response.status_code in (301, 302, 303, 307, 308):
+                                raise HTTPException(status_code=400, detail="Redirected HLS segments are not supported.")
+                            if response.status_code != 200:
+                                raise HTTPException(status_code=502, detail=f"HLS segment host returned HTTP {response.status_code}.")
+                            mime = video_content_type(response)
+                            if mime not in {"video/mp2t", "application/octet-stream"}:
+                                raise HTTPException(status_code=415, detail="Only MPEG-TS HLS segments are supported.")
+                            async for chunk in response.aiter_bytes(64 * 1024):
+                                total += len(chunk)
+                                if total > MAX_BYTES:
+                                    raise HTTPException(status_code=413, detail="HLS download exceeds the configured download limit.")
+                                temp.write(chunk)
+                    except HTTPException:
+                        raise
+                    except httpx.HTTPError:
+                        raise HTTPException(status_code=502, detail="Could not download an HLS media segment.")
+        if total == 0:
+            raise HTTPException(status_code=502, detail="The HLS playlist returned an empty video.")
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+        raise
+
+    filename = safe_filename(urlparse(url).path.rsplit("/", 1)[-1].rsplit(".", 1)[0] + ".ts")
+    return FileResponse(
+        temp_path,
+        media_type="video/mp2t",
+        filename=filename,
+        background=BackgroundTask(os.unlink, temp_path),
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    ), duration, len(segments)
+
+
+# -------------------------------------------------------------------
 # HEALTH AND PLATFORM INSPECTION
 # -------------------------------------------------------------------
 
@@ -619,6 +779,9 @@ def health():
         "direct_video_mime_types": ["video/mp4", "video/webm", "video/quicktime", "video/x-matroska", "application/octet-stream"],
         "head_fallback_enabled": True,
         "hls_dash_playlist_download": False,
+        "hls_playlist_download": True,
+        "dash_playlist_download": False,
+        "hls_support": "unencrypted_vod_mpegts_same_host_only",
         "tiktok_download_supported": False,
     }
 
@@ -756,6 +919,23 @@ async def info(
 ):
     parsed, host = parse_https_url(url)
     platform = identify_platform(host)
+
+    if is_hls_url(parsed):
+        segments, duration = await get_hls_playlist(url, host)
+        base_name = safe_filename(parsed.path.rsplit("/", 1)[-1].rsplit(".", 1)[0] + ".ts")
+        return {
+            "provider": "hls",
+            "host": host,
+            "filename": base_name,
+            "content_type": "video/mp2t",
+            "size_bytes": None,
+            "size_mb": None,
+            "format": "HLS (MPEG-TS)",
+            "duration": duration,
+            "thumbnail": None,
+            "quality": f"{len(segments)} segments",
+            "note": "Unencrypted completed HLS VOD playlist. Segments will be combined into a .ts video file.",
+        }
 
     if platform == "Vimeo":
         video_id = extract_vimeo_id(parsed)
@@ -933,6 +1113,10 @@ async def download(
 ):
     parsed, host = parse_https_url(url)
     platform = identify_platform(host)
+
+    if is_hls_url(parsed):
+        response, _duration, _segment_count = await download_hls_as_ts(url, host)
+        return response
 
     if platform == "Vimeo":
         video_id = extract_vimeo_id(parsed)
