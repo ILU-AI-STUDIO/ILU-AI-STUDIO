@@ -6,763 +6,147 @@
 <meta name="theme-color" content="#080b14">
 <meta name="description" content="ILU HD premium video downloader and media information">
 <title>ILU HD — Premium Video Downloader</title>
-
 <style>
-:root{
- color-scheme:dark;
- --bg:#070a13;
- --panel:#101827;
- --panel2:#0b1220;
- --line:#263650;
- --muted:#91a1ba;
- --blue:#39aaff;
- --purple:#9561ff;
- --green:#35d6a1;
- --red:#ff667d;
- --text:#f5f8ff;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
- margin:0;min-height:100vh;padding:28px 18px;
- background:radial-gradient(ellipse at 50% -15%,#263b70 0%,transparent 48%),
- radial-gradient(circle at 0% 45%,#15254a55,transparent 35%),
- radial-gradient(circle at 100% 75%,#39205b44,transparent 35%),var(--bg);
- color:var(--text);font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;
- display:flex;justify-content:center;overflow-x:hidden;
-}
-body:before{
- content:"";position:fixed;inset:0;pointer-events:none;opacity:.13;
- background-image:linear-gradient(#ffffff08 1px,transparent 1px),
- linear-gradient(90deg,#ffffff08 1px,transparent 1px);
- background-size:40px 40px;mask-image:linear-gradient(to bottom,black,transparent 85%);
-}
-main{position:relative;z-index:1;width:min(760px,100%)}
-header{text-align:center;margin:15px 0 30px}
-.logo{
- display:inline-block;font-size:clamp(55px,13vw,82px);font-weight:1000;
- letter-spacing:-6px;line-height:1;
- background:linear-gradient(110deg,#fff 5%,#66c5ff 42%,#a17aff 75%,#fff);
- background-size:200% auto;background-clip:text;-webkit-background-clip:text;
- color:transparent;animation:logoShine 5s linear infinite;
- filter:drop-shadow(0 5px 25px #419cff33);
-}
-@keyframes logoShine{to{background-position:200% center}}
-.tag{color:#9eacc4;font-size:11px;letter-spacing:3px;margin-top:12px;font-weight:750}
-.header-badge{
- display:inline-flex;align-items:center;gap:7px;margin-top:17px;padding:6px 12px;
- border:1px solid #315b7b;border-radius:30px;background:#122b4055;
- color:#a8dcff;font-size:10px;font-weight:800;letter-spacing:1px;
-}
-.live-dot{width:7px;height:7px;border-radius:50%;background:#35d6a1;box-shadow:0 0 12px #35d6a1;animation:pulse 1.8s infinite}
-@keyframes pulse{50%{opacity:.4;transform:scale(.75)}}
-.card{
- position:relative;padding:clamp(20px,5vw,36px);border:1px solid #34435c;
- border-radius:27px;background:linear-gradient(145deg,#151f33f5,#0b1221f7);
- box-shadow:0 25px 90px #0009,inset 0 1px 0 #ffffff0c;overflow:hidden;
-}
+:root{color-scheme:dark;--bg:#070a13;--line:#34435c;--muted:#91a1ba;--text:#f5f8ff}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;padding:28px 18px;background:radial-gradient(ellipse at 50% -15%,#263b70 0%,transparent 48%),radial-gradient(circle at 0 45%,#15254a55,transparent 35%),radial-gradient(circle at 100% 75%,#39205b44,transparent 35%),var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;display:flex;justify-content:center;overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.13;background-image:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px);background-size:40px 40px;mask-image:linear-gradient(to bottom,black,transparent 85%)}
+main{position:relative;z-index:1;width:min(760px,100%)}header{text-align:center;margin:15px 0 30px}
+.logo{display:inline-block;font-size:clamp(55px,13vw,82px);font-weight:1000;letter-spacing:-6px;line-height:1;background:linear-gradient(110deg,#fff 5%,#66c5ff 42%,#a17aff 75%,#fff);background-size:200% auto;background-clip:text;-webkit-background-clip:text;color:transparent;animation:shine 5s linear infinite;filter:drop-shadow(0 5px 25px #419cff33)}
+@keyframes shine{to{background-position:200% center}}.tag{color:#9eacc4;font-size:11px;letter-spacing:3px;margin-top:12px;font-weight:750}
+.header-badge{display:inline-flex;align-items:center;gap:7px;margin-top:17px;padding:6px 12px;border:1px solid #315b7b;border-radius:30px;background:#122b4055;color:#a8dcff;font-size:10px;font-weight:800;letter-spacing:1px}
+.live-dot,.pill-dot{width:7px;height:7px;border-radius:50%;background:#35d6a1;box-shadow:0 0 12px #35d6a1}.live-dot{animation:pulse 1.8s infinite}@keyframes pulse{50%{opacity:.4;transform:scale(.75)}}
+.card{position:relative;padding:clamp(20px,5vw,36px);border:1px solid #34435c;border-radius:27px;background:linear-gradient(145deg,#151f33f5,#0b1221f7);box-shadow:0 25px 90px #0009,inset 0 1px 0 #ffffff0c;overflow:hidden}
 .card:before{content:"";position:absolute;top:0;left:10%;width:80%;height:1px;background:linear-gradient(90deg,transparent,#66baff,transparent)}
-h1{font-size:25px;letter-spacing:-.6px;margin:0 0 7px}
-.desc{color:var(--muted);font-size:13px;margin:0 0 27px}
+h1{font-size:25px;letter-spacing:-.6px;margin:0 0 7px}.desc{color:var(--muted);font-size:13px;margin:0 0 27px}
 label{display:block;font-size:11px;font-weight:850;letter-spacing:1.5px;margin-bottom:10px;color:#c8d7ec}
-.row{display:flex;gap:11px}
-input{
- flex:1;min-width:0;min-height:55px;padding:15px 17px;border-radius:14px;
- border:1px solid #35445f;background:#080e1b;color:white;font:inherit;outline:none;transition:.25s;
-}
-input::placeholder{color:#66758e}
-input:focus{border-color:var(--blue);box-shadow:0 0 0 4px #36a4ff18,0 0 22px #36a4ff12}
-button{
- position:relative;border:0;border-radius:14px;padding:0 23px;min-height:53px;
- color:white;font:inherit;font-weight:850;background:linear-gradient(110deg,#168de8,#8052ef);
- box-shadow:0 7px 22px #438cff28;cursor:pointer;transition:transform .2s,filter .2s,box-shadow .2s;
-}
-button:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.12);box-shadow:0 10px 28px #438cff44}
-button:active:not(:disabled){transform:scale(.98)}
-button:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
-.cancel{background:linear-gradient(110deg,#dc405c,#a91d39);box-shadow:0 7px 22px #d83d5422}
-.status{
- display:none;margin-top:17px;padding:14px 16px;border-radius:13px;
- border:1px solid var(--line);font-size:13px;overflow-wrap:anywhere;animation:fadeUp .3s ease;
-}
-.status.show{display:block}
-.status.error{border-color:#8f3947;color:#ffb9c2;background:#40162144}
-.status.ok{border-color:#286b59;color:#a9f0d7;background:#103b3044}
-.status.info{border-color:#345c91;color:#b8d9ff;background:#122b4844}
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.platform-card{
- display:none;margin-top:20px;padding:20px;border:1px solid #34435d;border-radius:19px;
- background:linear-gradient(135deg,#14223a,#0b1222);animation:fadeUp .35s ease;
-}
-.platform-card.show{display:block}
-.platform-heading{display:flex;align-items:center;gap:15px}
-.platform-icon{
- width:58px;height:58px;flex-shrink:0;display:grid;place-items:center;border-radius:17px;
- background:#202d46;font-size:28px;font-weight:950;box-shadow:0 6px 22px #0005;border:1px solid #ffffff12;
-}
-.icon-youtube{background:#59202b;color:#ff6666}.icon-instagram{background:#51254e;color:#ff9acb}
-.icon-facebook{background:#183d70;color:#70aaff}.icon-tiktok{background:#173a40;color:#8af5eb}
-.icon-x{background:#252a33;color:#fff}.icon-vimeo{background:#173d65;color:#75c5ff}
-.icon-dailymotion{background:#203b65;color:#8ebcff}.icon-twitch{background:#392365;color:#c5a3ff}
-.icon-reddit{background:#582b1c;color:#ff9b6a}.icon-snapchat{background:#5b551d;color:#fff28a}
-.icon-pinterest{background:#59202a;color:#ff8794}.icon-linkedin{background:#17415c;color:#83d4ff}
-.icon-threads{background:#30303a;color:#fff}
-.platform-name{font-size:19px;font-weight:900;letter-spacing:-.3px}
-.platform-caption{color:var(--muted);font-size:12px}
-.platform-badge{display:inline-flex;align-items:center;gap:6px;margin-top:17px;padding:7px 12px;border-radius:30px;font-size:10px;font-weight:900;letter-spacing:.5px}
-.badge-supported{color:#9cf0d2;background:#174b3b;border:1px solid #286b59}
-.badge-unavailable{color:#ffc2ca;background:#50202b;border:1px solid #873847}
-.platform-message{color:#c2cfe3;font-size:13px;line-height:1.7;margin:13px 0 0;overflow-wrap:anywhere}
-.platform-host{color:#8192ac;font-size:11px;margin-top:11px;overflow-wrap:anywhere}
-.preview,.details,.progress-box{
- display:none;margin-top:20px;padding:19px;border:1px solid #34435d;border-radius:19px;
- background:linear-gradient(145deg,#111c30,#080e1b);animation:fadeUp .35s ease;
-}
-.preview.show,.details.show,.progress-box.show{display:block}
-.section-heading{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:900;margin-bottom:14px}
-.heading-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:#263c60}
-video{display:block;width:100%;max-height:400px;background:#000;border-radius:13px;border:1px solid #ffffff12}
-.preview-note{color:var(--muted);font-size:11px;margin:11px 0 0}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:15px 0 18px}
-.item{padding:13px;background:#151f31;border:1px solid #ffffff08;border-radius:12px;min-width:0}
-.item small{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}
-.item strong{display:block;font-size:14px;overflow-wrap:anywhere}
-.download-wrap{padding-top:4px}
-#download{width:100%;min-height:57px;font-size:15px;background:linear-gradient(100deg,#087fd5,#6550e9,#a14ff1);box-shadow:0 8px 30px #6650e944}
+.row{display:flex;gap:11px}input{flex:1;min-width:0;min-height:55px;padding:15px 17px;border-radius:14px;border:1px solid #35445f;background:#080e1b;color:white;font:inherit;outline:none}
+input::placeholder{color:#66758e}input:focus{border-color:#39aaff;box-shadow:0 0 0 4px #36a4ff18}
+button{border:0;border-radius:14px;padding:0 23px;min-height:53px;color:white;font:inherit;font-weight:850;background:linear-gradient(110deg,#168de8,#8052ef);box-shadow:0 7px 22px #438cff28;cursor:pointer;transition:.2s}
+button:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.12)}button:disabled{opacity:.5;cursor:not-allowed}.cancel{background:linear-gradient(110deg,#dc405c,#a91d39)}
+.status,.platform-card,.preview,.details,.progress-box{display:none;margin-top:20px;padding:19px;border:1px solid var(--line);border-radius:19px;background:linear-gradient(145deg,#111c30,#080e1b);overflow-wrap:anywhere}
+.status{font-size:13px}.status.show,.platform-card.show,.preview.show,.details.show,.progress-box.show{display:block}
+.status.error{border-color:#8f3947;color:#ffb9c2;background:#40162144}.status.ok{border-color:#286b59;color:#a9f0d7;background:#103b3044}.status.info{border-color:#345c91;color:#b8d9ff;background:#122b4844}
+.platform-heading{display:flex;align-items:center;gap:15px}.platform-icon{width:58px;height:58px;flex-shrink:0;display:grid;place-items:center;border-radius:17px;background:#202d46;font-size:28px;font-weight:950;border:1px solid #ffffff12}
+.icon-youtube{background:#59202b;color:#ff6666}.icon-instagram{background:#51254e;color:#ff9acb}.icon-facebook{background:#183d70;color:#70aaff}.icon-tiktok{background:#173a40;color:#8af5eb}.icon-x{background:#252a33}.icon-vimeo{background:#173d65;color:#75c5ff}.icon-dailymotion{background:#203b65;color:#8ebcff}.icon-twitch{background:#392365;color:#c5a3ff}.icon-reddit{background:#582b1c;color:#ff9b6a}.icon-snapchat{background:#5b551d;color:#fff28a}.icon-pinterest{background:#59202a;color:#ff8794}.icon-linkedin{background:#17415c;color:#83d4ff}.icon-threads{background:#30303a}
+.platform-name{font-size:19px;font-weight:900}.platform-caption,.preview-note,.quality-hint{color:var(--muted);font-size:11px}
+.platform-badge{display:inline-flex;margin-top:17px;padding:7px 12px;border-radius:30px;font-size:10px;font-weight:900}.badge-supported{color:#9cf0d2;background:#174b3b;border:1px solid #286b59}.badge-unavailable{color:#ffc2ca;background:#50202b;border:1px solid #873847}
+.platform-message{color:#c2cfe3;font-size:13px;line-height:1.7;margin:13px 0 0}.platform-host{color:#8192ac;font-size:11px;margin-top:11px}
+.section-heading{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:900;margin-bottom:14px}.heading-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:#263c60}
+video{display:block;width:100%;max-height:400px;background:#000;border-radius:13px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:15px 0 18px}
+.item,.progress-stat{padding:13px;background:#151f31;border:1px solid #ffffff08;border-radius:12px;min-width:0}.item small,.progress-stat small{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}.item strong,.progress-stat strong{display:block;font-size:14px;overflow-wrap:anywhere}
+#download{width:100%;min-height:57px;font-size:15px;background:linear-gradient(100deg,#087fd5,#6550e9,#a14ff1)}
 .hint{font-size:11px;color:var(--muted);line-height:1.7;margin-top:15px}
-.progress-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:13px}
-.progress-title{font-size:13px;font-weight:850}
-.percent{color:#65baff;font-size:23px;font-weight:950}
-.progress-track{width:100%;height:11px;background:#202c40;border-radius:20px;overflow:hidden}
-.progress-fill{width:0%;height:100%;background:linear-gradient(90deg,#168de8,#925cff,#c06bff);background-size:200% 100%;border-radius:20px;transition:width .15s linear}
-.progress-info{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}
-.progress-stat{background:#151f31;border:1px solid #ffffff08;padding:12px;border-radius:12px}
-.progress-stat small{display:block;color:var(--muted);font-size:10px;margin-bottom:4px}
-.progress-stat strong{font-size:14px;overflow-wrap:anywhere}
-.progress-actions{display:flex;gap:10px;margin-top:16px}
-.progress-actions button{flex:1}
-.pills{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin-top:24px}
-.pill{display:flex;align-items:center;gap:6px;border:1px solid #34435d;color:#c3d0e3;border-radius:30px;padding:7px 12px;font-size:10px;font-weight:700;background:#ffffff04}
-.pill-dot{width:6px;height:6px;border-radius:50%;background:#35d6a1}
-.footer-note{text-align:center;color:#77869f;font-size:11px;line-height:1.7;margin-top:20px}
-footer{text-align:center;color:#64748b;font-size:11px;margin:22px 0 5px;letter-spacing:.5px}
-.footer-logo{color:#a9caff;font-weight:900}
-@media(max-width:560px){
- body{padding:18px 12px}header{margin:12px 0 25px}.logo{letter-spacing:-4px}
- .card{border-radius:21px;padding:21px 17px}.row{display:grid;grid-template-columns:1fr}
- .row button{width:100%}.grid{grid-template-columns:1fr}.progress-actions{display:grid}
- .platform-card,.preview,.details,.progress-box{border-radius:16px}
- .platform-icon{width:52px;height:52px}h1{font-size:22px}
-}
-@media(prefers-reduced-motion:reduce){
- *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
-}
-
-.quality-wrap{margin:18px 0 4px;padding:15px;border:1px solid #35445f;border-radius:14px;background:#080e1b}
-.quality-wrap[hidden]{display:none}
-.quality-wrap label{margin:0 0 8px}
-.quality-wrap select{width:100%;min-height:48px;padding:10px 13px;border-radius:11px;border:1px solid #405574;background:#101827;color:#fff;font:inherit;font-weight:750}
-.quality-hint{margin:7px 0 0;color:#91a1ba;font-size:11px}
-
+.quality-wrap{margin:18px 0 4px;padding:15px;border:1px solid #35445f;border-radius:14px;background:#080e1b}.quality-wrap[hidden]{display:none}.quality-wrap label{margin:0 0 8px}.quality-wrap select{width:100%;min-height:48px;padding:10px 13px;border-radius:11px;border:1px solid #405574;background:#101827;color:#fff;font:inherit;font-weight:750}.quality-hint{margin:7px 0 0}
+.progress-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:13px}.progress-title{font-size:13px;font-weight:850}.percent{color:#65baff;font-size:23px;font-weight:950}
+.progress-track{width:100%;height:11px;background:#202c40;border-radius:20px;overflow:hidden}.progress-fill{width:0%;height:100%;background:linear-gradient(90deg,#168de8,#925cff,#c06bff);border-radius:20px;transition:width .15s linear}
+.progress-info{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}.progress-actions{display:flex;gap:10px;margin-top:16px}.progress-actions button{flex:1}
+.pills{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin-top:24px}.pill{display:flex;align-items:center;gap:6px;border:1px solid #34435d;color:#c3d0e3;border-radius:30px;padding:7px 12px;font-size:10px;font-weight:700;background:#ffffff04}.pill-dot{width:6px;height:6px}
+.footer-note{text-align:center;color:#77869f;font-size:11px;line-height:1.7;margin-top:20px}footer{text-align:center;color:#64748b;font-size:11px;margin:22px 0 5px;letter-spacing:.5px}.footer-logo{color:#a9caff;font-weight:900}
+@media(max-width:560px){body{padding:18px 12px}header{margin:12px 0 25px}.logo{letter-spacing:-4px}.card{border-radius:21px;padding:21px 17px}.row{display:grid;grid-template-columns:1fr}.row button{width:100%}.grid{grid-template-columns:1fr}.progress-actions{display:grid}.platform-icon{width:52px;height:52px}h1{font-size:22px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>
 </head>
-<body>
-<main>
-
-<header>
- <div class="logo">ILU HD</div>
- <div class="tag">YOUR VIDEOS. YOUR QUALITY.</div>
- <div class="header-badge"><span class="live-dot"></span> PREMIUM VIDEO EXPERIENCE</div>
-</header>
-
+<body><main>
+<header><div class="logo">ILU HD</div><div class="tag">YOUR VIDEOS. YOUR QUALITY.</div><div class="header-badge"><span class="live-dot"></span> PREMIUM VIDEO EXPERIENCE</div></header>
 <section class="card">
-<h1>Video Downloader</h1>
-<p class="desc">Paste a video link to detect its platform, preview supported direct videos and check authorized download availability.</p>
-
-<form id="form">
- <label for="url">VIDEO LINK</label>
- <div class="row">
-  <input id="url" type="url" placeholder="Paste your video link here..." required autocomplete="url">
-  <button id="check" type="submit">Check link</button>
- </div>
-</form>
-
+<h1>Video Downloader</h1><p class="desc">Paste a video link to detect its platform, preview supported direct videos and check authorized download availability.</p>
+<form id="form"><label for="url">VIDEO LINK</label><div class="row"><input id="url" type="url" placeholder="Paste your video link here..." required autocomplete="url"><button id="check" type="submit">Check link</button></div></form>
 <div id="status" class="status" role="status" aria-live="polite"></div>
-
-<section id="platformCard" class="platform-card" aria-live="polite">
- <div class="platform-heading">
-  <div id="platformIcon" class="platform-icon">🔎</div>
-  <div>
-   <div id="platformName" class="platform-name">Detecting...</div>
-   <div class="platform-caption">Platform detection result</div>
-  </div>
- </div>
- <div id="platformBadge" class="platform-badge"></div>
- <p id="platformMessage" class="platform-message"></p>
- <div id="platformHost" class="platform-host"></div>
-</section>
-
-<section id="preview" class="preview">
- <div class="section-heading"><span class="heading-icon">🎬</span>Video Preview</div>
- <video id="videoPreview" controls playsinline preload="metadata"></video>
- <p class="preview-note" id="previewNote">Preview is available for supported direct video URLs.</p>
-</section>
-
-<section id="details" class="details">
- <div class="section-heading"><span class="heading-icon">📁</span>Video Information</div>
- <div class="grid">
-  <div class="item"><small>File name</small><strong id="filename">-</strong></div>
-  <div class="item"><small>Format / Quality</small><strong id="format">-</strong></div>
-  <div class="item"><small>File size</small><strong id="size">Not provided</strong></div>
-  <div class="item"><small>Duration</small><strong id="duration">Not provided</strong></div>
- </div>
- <div id="qualityWrap" class="quality-wrap" hidden>
-  <label for="qualitySelect">VIDEO QUALITY</label>
-  <select id="qualitySelect" aria-label="Choose video quality"></select>
-  <p class="quality-hint">Choose one of the qualities available in this video playlist.</p>
- </div>
- <div class="download-wrap"><button id="download" type="button">⬇ Download Video</button></div>
- <p class="hint" id="note"></p>
-</section>
-
-<section id="progressBox" class="progress-box">
- <div class="progress-top">
-  <span class="progress-title" id="progressTitle">Downloading video...</span>
-  <span class="percent" id="percent">0%</span>
- </div>
- <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
- <div class="progress-info">
-  <div class="progress-stat"><small>Downloaded</small><strong id="downloaded">0 MB</strong></div>
-  <div class="progress-stat"><small>Total size</small><strong id="totalSize">Unknown</strong></div>
-  <div class="progress-stat"><small>Download speed</small><strong id="speed">0 MB/s</strong></div>
-  <div class="progress-stat"><small>Status</small><strong id="downloadState">Preparing...</strong></div>
- </div>
- <div class="progress-actions"><button id="cancel" class="cancel" type="button">✕ Cancel Download</button></div>
-</section>
-
-<div class="pills">
- <span class="pill"><span class="pill-dot"></span>13 Platforms detected</span>
- <span class="pill">🎬 Video preview</span>
- <span class="pill">🔒 Authorized access</span>
- <span class="pill">✨ No ads</span>
- <span class="pill">📱 iPhone + Android</span>
- <span class="pill">⚡ Live progress</span>
-</div>
-
-<p class="footer-note">
-Platform detection does not mean downloading is available. ILU HD does not ask visitors to connect Instagram or Facebook accounts. Instagram/Facebook post links cannot generally be converted into official downloadable files without platform authorization. Direct cdninstagram.com and fbcdn.net video-file links can be checked and downloaded when they are still valid and publicly accessible. Vimeo/Twitch integrations may still depend on server-owner API credentials. TikTok official APIs do not provide general video-file downloads. Download only content you own or are authorized to save. Private and DRM-protected content is not supported.
-</p>
-</section>
-
-<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v4.1.0</footer>
+<section id="platformCard" class="platform-card" aria-live="polite"><div class="platform-heading"><div id="platformIcon" class="platform-icon">🔎</div><div><div id="platformName" class="platform-name">Detecting...</div><div class="platform-caption">Platform detection result</div></div></div><div id="platformBadge" class="platform-badge"></div><p id="platformMessage" class="platform-message"></p><div id="platformHost" class="platform-host"></div></section>
+<section id="preview" class="preview"><div class="section-heading"><span class="heading-icon">🎬</span>Video Preview</div><video id="videoPreview" controls playsinline preload="metadata"></video><p class="preview-note" id="previewNote">Preview is available for supported direct video URLs.</p></section>
+<section id="details" class="details"><div class="section-heading"><span class="heading-icon">📁</span>Video Information</div>
+<div class="grid"><div class="item"><small>File name</small><strong id="filename">-</strong></div><div class="item"><small>Format / Quality</small><strong id="format">-</strong></div><div class="item"><small>File size</small><strong id="size">Not provided</strong></div><div class="item"><small>Duration</small><strong id="duration">Not provided</strong></div></div>
+<div id="qualityWrap" class="quality-wrap" hidden><label for="qualitySelect">VIDEO QUALITY</label><select id="qualitySelect" aria-label="Choose video quality"></select><p class="quality-hint">Choose one of the qualities available in this video playlist.</p></div>
+<div><button id="download" type="button">⬇ Download Video</button></div><p class="hint" id="note"></p></section>
+<section id="progressBox" class="progress-box"><div class="progress-top"><span class="progress-title" id="progressTitle">Downloading video...</span><span class="percent" id="percent">0%</span></div><div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+<div class="progress-info"><div class="progress-stat"><small>Downloaded</small><strong id="downloaded">0 MB</strong></div><div class="progress-stat"><small>Total size</small><strong id="totalSize">Unknown</strong></div><div class="progress-stat"><small>Download speed</small><strong id="speed">0 MB/s</strong></div><div class="progress-stat"><small>Status</small><strong id="downloadState">Preparing...</strong></div></div>
+<div class="progress-actions"><button id="cancel" class="cancel" type="button">✕ Cancel Download</button></div></section>
+<div class="pills"><span class="pill"><span class="pill-dot"></span>13 Platforms detected</span><span class="pill">🎬 Video preview</span><span class="pill">🔒 Authorized access</span><span class="pill">✨ No ads</span><span class="pill">📱 iPhone + Android</span><span class="pill">⚡ Live progress</span></div>
+<p class="footer-note">Platform detection does not mean downloading is available. ILU HD does not ask visitors to connect Instagram or Facebook accounts. Instagram/Facebook post links cannot generally be converted into official downloadable files without platform authorization. Direct cdninstagram.com and fbcdn.net video-file links can be checked and downloaded when they are still valid and publicly accessible. Vimeo/Twitch integrations may still depend on server-owner API credentials. TikTok official APIs do not provide general video-file downloads. Download only content you own or are authorized to save. Private and DRM-protected content is not supported.</p>
+</section><footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v4.1.1</footer>
 </main>
-
 <script>
+"use strict";
 const API_BASE="https://ilu-ai-studio.onrender.com";
-
-const form=document.getElementById("form");
-const input=document.getElementById("url");
-const check=document.getElementById("check");
-const statusBox=document.getElementById("status");
-const details=document.getElementById("details");
-const downloadBtn=document.getElementById("download");
-const cancelBtn=document.getElementById("cancel");
-const platformCard=document.getElementById("platformCard");
-const preview=document.getElementById("preview");
-const videoPreview=document.getElementById("videoPreview");
-const progressBox=document.getElementById("progressBox");
-const qualityWrap=document.getElementById("qualityWrap");
-const qualitySelect=document.getElementById("qualitySelect");
-
-const progressFill=document.getElementById("progressFill");
-const percent=document.getElementById("percent");
-
-let currentUrl="";
-let currentProvider="direct";
-let currentHlsHasVariants=false; // true for selectable HLS or DASH representations
-let controller=null;
-let downloading=false;
-
-const platformIcons={
- "YouTube":{icon:"▶",className:"icon-youtube"},
- "Instagram":{icon:"◎",className:"icon-instagram"},
- "Facebook":{icon:"f",className:"icon-facebook"},
- "TikTok":{icon:"♪",className:"icon-tiktok"},
- "X (Twitter)":{icon:"𝕏",className:"icon-x"},
- "Vimeo":{icon:"v",className:"icon-vimeo"},
- "Dailymotion":{icon:"D",className:"icon-dailymotion"},
- "Twitch":{icon:"▣",className:"icon-twitch"},
- "Reddit":{icon:"●",className:"icon-reddit"},
- "Snapchat":{icon:"👻",className:"icon-snapchat"},
- "Pinterest":{icon:"P",className:"icon-pinterest"},
- "LinkedIn":{icon:"in",className:"icon-linkedin"},
- "Threads":{icon:"@",className:"icon-threads"},
- "Direct Video":{icon:"▶",className:""},
- "Direct Video / Other":{icon:"▶",className:""}
-};
-
-function status(message,kind=""){
- statusBox.className="status show"+(kind?" "+kind:"");
- statusBox.textContent=message;
-}
-
-function showPlatform(result){
- const name=result.platform||"Unknown platform";
- const config=platformIcons[name]||{icon:"🔎",className:""};
- const icon=document.getElementById("platformIcon");
-
- icon.textContent=config.icon;
- icon.className="platform-icon "+config.className;
- document.getElementById("platformName").textContent=name;
-
- const badge=document.getElementById("platformBadge");
- badge.className="platform-badge";
-
- if(result.download_available===true){
-  badge.textContent="✓ DOWNLOAD AVAILABLE";
-  badge.classList.add("badge-supported");
- }else{
-  badge.textContent="DOWNLOAD NOT AVAILABLE";
-  badge.classList.add("badge-unavailable");
- }
-
- document.getElementById("platformMessage").textContent=
-  result.message||"Platform detection completed.";
-
- document.getElementById("platformHost").textContent=
-  result.host?"Detected hostname: "+result.host:"";
-
- platformCard.classList.add("show");
-}
-
-function clearPreview(){
- videoPreview.pause();
- videoPreview.removeAttribute("src");
- videoPreview.load();
- preview.classList.remove("show");
-}
-
-videoPreview.addEventListener("error",()=>{
- document.getElementById("previewNote").textContent=
-  "Preview is unavailable in this browser. You can still try downloading the supported file.";
-});
-
-videoPreview.addEventListener("loadedmetadata",()=>{
- if(Number.isFinite(videoPreview.duration)){
-  document.getElementById("duration").textContent=
-   Math.floor(videoPreview.duration/60)+":"+
-   String(Math.floor(videoPreview.duration%60)).padStart(2,"0");
- }
-});
-
-function bytes(number){
- if(number==null)return "Unknown";
- const units=["B","KB","MB","GB"];
- let index=0,value=number;
- while(value>=1024&&index<units.length-1){value/=1024;index++}
- return value.toFixed(index?2:0)+" "+units[index];
-}
-
-function speedFormat(number){
- return (number/1024/1024).toFixed(2)+" MB/s";
-}
-
-function notify(message){
- if("Notification" in window&&Notification.permission==="granted"){
-  try{new Notification("ILU HD",{body:message})}catch(error){}
- }
-}
-
-function getFilename(disposition,fallback){
- if(disposition){
-  const utf=disposition.match(/filename\*=UTF-8''([^;]+)/i);
-  if(utf){try{return decodeURIComponent(utf[1])}catch(error){}}
-  const normal=disposition.match(/filename="?([^";]+)"?/i);
-  if(normal)return normal[1];
- }
- return fallback||"ilu-hd-video";
-}
-
-function resetProgress(){
- progressFill.style.width="0%";
- percent.textContent="0%";
- document.getElementById("downloaded").textContent="0 MB";
- document.getElementById("totalSize").textContent="Unknown";
- document.getElementById("speed").textContent="0 MB/s";
- document.getElementById("downloadState").textContent="Preparing...";
- document.getElementById("progressTitle").textContent="Downloading video...";
-}
-
-qualitySelect.addEventListener("change",()=>{
- const selected=qualitySelect.options[qualitySelect.selectedIndex];
- if(selected)document.getElementById("format").textContent=(currentProvider==="dash"?"DASH · ":"HLS · ")+selected.textContent;
-});
-
-/* ---------------------------------------------------------------
-   CHECK LINK AND INSPECT PROVIDER
----------------------------------------------------------------- */
-
-form.addEventListener("submit",async event=>{
- event.preventDefault();
- if(downloading)return;
-
- details.classList.remove("show");
- platformCard.classList.remove("show");
- progressBox.classList.remove("show");
- clearPreview();
- currentUrl="";
- currentProvider="direct";
- currentHlsHasVariants=false;
- qualityWrap.hidden=true;
- qualitySelect.innerHTML="";
-
- let target;
-
+const $=id=>document.getElementById(id);
+const form=$("form"),input=$("url"),check=$("check"),statusBox=$("status"),details=$("details"),downloadBtn=$("download");
+const platformCard=$("platformCard"),preview=$("preview"),videoPreview=$("videoPreview"),progressBox=$("progressBox");
+const qualityWrap=$("qualityWrap"),qualitySelect=$("qualitySelect"),progressFill=$("progressFill"),percent=$("percent"),cancelBtn=$("cancel");
+let currentUrl="",currentProvider="direct",currentHlsHasVariants=false,controller=null,downloading=false;
+const platformIcons={"YouTube":["▶","icon-youtube"],"Instagram":["◎","icon-instagram"],"Facebook":["f","icon-facebook"],"TikTok":["♪","icon-tiktok"],"X (Twitter)":["𝕏","icon-x"],"Vimeo":["v","icon-vimeo"],"Dailymotion":["D","icon-dailymotion"],"Twitch":["▣","icon-twitch"],"Reddit":["●","icon-reddit"],"Snapchat":["👻","icon-snapchat"],"Pinterest":["P","icon-pinterest"],"LinkedIn":["in","icon-linkedin"],"Threads":["@","icon-threads"],"Direct Video":["▶",""],"Direct Video / Other":["▶",""]};
+function setStatus(message,kind=""){statusBox.className="status show"+(kind?" "+kind:"");statusBox.textContent=message}
+function showPlatform(result){const name=result.platform||"Unknown platform",cfg=platformIcons[name]||["🔎",""]; $("platformIcon").textContent=cfg[0];$("platformIcon").className="platform-icon "+cfg[1];$("platformName").textContent=name;
+ const badge=$("platformBadge");badge.className="platform-badge";if(result.download_available===true){badge.textContent="✓ DOWNLOAD AVAILABLE";badge.classList.add("badge-supported")}else{badge.textContent="DOWNLOAD NOT AVAILABLE";badge.classList.add("badge-unavailable")}
+ $("platformMessage").textContent=result.message||"Platform detection completed.";$("platformHost").textContent=result.host?"Detected hostname: "+result.host:"";platformCard.classList.add("show")}
+function clearPreview(){videoPreview.pause();videoPreview.removeAttribute("src");videoPreview.load();preview.classList.remove("show")}
+videoPreview.addEventListener("error",()=>{$("previewNote").textContent="Preview is unavailable in this browser. You can still try downloading the supported file."});
+videoPreview.addEventListener("loadedmetadata",()=>{if(Number.isFinite(videoPreview.duration))$("duration").textContent=Math.floor(videoPreview.duration/60)+":"+String(Math.floor(videoPreview.duration%60)).padStart(2,"0")});
+function bytes(n){if(n==null||!Number.isFinite(Number(n)))return"Unknown";const u=["B","KB","MB","GB"];let i=0,v=Number(n);while(v>=1024&&i<u.length-1){v/=1024;i++}return v.toFixed(i?2:0)+" "+u[i]}
+function getFilename(disposition,fallback){if(disposition){const utf=disposition.match(/filename\*=UTF-8''([^;]+)/i);if(utf){try{return decodeURIComponent(utf[1])}catch(e){}}const normal=disposition.match(/filename="?([^";]+)"?/i);if(normal)return normal[1]}return fallback||"ilu-hd-video"}
+function notify(message){if("Notification"in window&&Notification.permission==="granted"){try{new Notification("ILU HD",{body:message})}catch(e){}}}
+function resetProgress(){progressFill.style.width="0%";percent.textContent="0%";$("downloaded").textContent="0 MB";$("totalSize").textContent="Unknown";$("speed").textContent="0 MB/s";$("downloadState").textContent="Preparing...";$("progressTitle").textContent="Downloading video..."}
+qualitySelect.addEventListener("change",()=>{const o=qualitySelect.options[qualitySelect.selectedIndex];if(o)$("format").textContent=(currentProvider==="dash"?"DASH · ":"HLS · ")+o.textContent});
+form.addEventListener("submit",async e=>{
+ e.preventDefault();if(downloading)return;details.classList.remove("show");platformCard.classList.remove("show");progressBox.classList.remove("show");clearPreview();
+ currentUrl="";currentProvider="direct";currentHlsHasVariants=false;qualityWrap.hidden=true;qualitySelect.innerHTML="";
+ let target;try{target=new URL(input.value.trim());if(target.protocol!=="https:"||target.username||target.password)throw Error("Enter a valid HTTPS video URL.")}catch(err){setStatus(err.message||"Invalid URL.","error");return}
+ check.disabled=true;check.textContent="Checking...";setStatus("Identifying platform and checking download availability...","info");
  try{
-  target=new URL(input.value.trim());
-
-  if(target.protocol!=="https:"||target.username||target.password){
-   throw Error("Enter a valid HTTPS video URL.");
-  }
- }catch(error){
-  status(error.message||"Invalid URL.","error");
-  return;
- }
-
- check.disabled=true;
- check.textContent="Checking...";
- status("Identifying platform and checking download availability...","info");
-
- try{
-  const inspectResponse=await fetch(
-   API_BASE+"/inspect?url="+encodeURIComponent(target.href)
-  );
-  const inspectData=await inspectResponse.json();
-
-  if(!inspectResponse.ok){
-   throw Error(inspectData.detail||"Could not inspect this link.");
-  }
-
-  showPlatform(inspectData);
-
-  if(inspectData.download_available!==true){
-   status(
-    inspectData.message||"Platform detected, but downloading is not available.",
-    "info"
-   );
-   return;
-  }
-
-  const infoResponse=await fetch(
-   API_BASE+"/info?url="+encodeURIComponent(target.href)
-  );
-  const info=await infoResponse.json();
-
-  if(!infoResponse.ok){
-   throw Error(info.detail||"Video information is unavailable.");
-  }
-
-  currentUrl=target.href;
-  currentProvider=info.provider||inspectData.provider||"direct";
-
-  document.getElementById("filename").textContent=info.filename||"-";
-  document.getElementById("format").textContent=
-   info.quality?(info.format+" · "+info.quality):(info.format||"-");
-  document.getElementById("size").textContent=bytes(info.size_bytes);
-
-  document.getElementById("duration").textContent=
-   info.duration
-    ?Math.floor(info.duration/60)+":"+
-     String(Math.floor(info.duration%60)).padStart(2,"0")
-    :"Not provided";
-
-  document.getElementById("note").textContent=info.note||"";
+  const ir=await fetch(API_BASE+"/inspect?url="+encodeURIComponent(target.href));const inspect=await ir.json();if(!ir.ok)throw Error(inspect.detail||"Could not inspect this link.");showPlatform(inspect);
+  if(inspect.download_available!==true){setStatus(inspect.message||"Platform detected, but downloading is not available.","info");return}
+  const infR=await fetch(API_BASE+"/info?url="+encodeURIComponent(target.href));const info=await infR.json();if(!infR.ok)throw Error(info.detail||"Video information is unavailable.");
+  currentUrl=target.href;currentProvider=info.provider||inspect.provider||"direct";
+  $("filename").textContent=info.filename||"-";$("format").textContent=info.quality?(info.format+" · "+info.quality):(info.format||"-");$("size").textContent=bytes(info.size_bytes);
+  $("duration").textContent=info.duration?Math.floor(info.duration/60)+":"+String(Math.floor(info.duration%60)).padStart(2,"0"):"Not provided";$("note").textContent=info.note||"";
   if((info.provider==="hls"||info.provider==="dash")&&Array.isArray(info.variants)&&info.variants.length>1){
-   currentHlsHasVariants=true;
-   qualitySelect.innerHTML="";
-   info.variants.forEach((variant,index)=>{
-    const option=document.createElement("option");
-    option.value=String(variant.index??index);
-    const extra=variant.bandwidth?" · "+Math.round(variant.bandwidth/1000)+" kbps":"";
-    option.textContent=(variant.label||("Quality "+(index+1)))+extra;
-    qualitySelect.appendChild(option);
-   });
-   qualitySelect.value="0";
-   qualityWrap.hidden=false;
-   document.getElementById("format").textContent=(info.provider==="dash"?"DASH · ":"HLS · ")+info.variants[0].label;
-  }else{
-   qualityWrap.hidden=true;
-   currentHlsHasVariants=false;
-  }
+   currentHlsHasVariants=true;qualitySelect.innerHTML="";info.variants.forEach((v,i)=>{const o=document.createElement("option");o.value=String(v.index??i);o.textContent=(v.label||("Quality "+(i+1)))+(v.bandwidth?" · "+Math.round(v.bandwidth/1000)+" kbps":"");qualitySelect.appendChild(o)});
+   qualitySelect.value="0";qualityWrap.hidden=false;$("format").textContent=(info.provider==="dash"?"DASH · ":"HLS · ")+info.variants[0].label;
+  }else{qualityWrap.hidden=true;currentHlsHasVariants=false}
   details.classList.add("show");
-
-  if(currentProvider==="direct"){
-   document.getElementById("previewNote").textContent=
-    "Preview is available for supported direct video URLs.";
-   videoPreview.src=target.href;
-   preview.classList.add("show");
-   videoPreview.load();
-  }else if(currentProvider==="vimeo"){
-   document.getElementById("previewNote").textContent=
-    "Vimeo file details are loaded through its official API. The signed download is requested when you tap Download.";
-  }else if(currentProvider==="twitch"){
-   document.getElementById("previewNote").textContent=
-    "Twitch clip details are loaded through its official API. The authorized signed download is requested when you tap Download.";
-  }else if(currentProvider==="instagram"){
-   document.getElementById("previewNote").textContent=
-    "Public Instagram media URL found in page metadata. No account connection is used.";
-  }else if(currentProvider==="facebook"){
-   document.getElementById("previewNote").textContent=
-    "Public Facebook media URL found in page metadata. No account connection is used.";
-  }else if(currentProvider==="dash"){
-   document.getElementById("previewNote").textContent=
-    "DASH stream details loaded. A supported unencrypted MP4 representation will be assembled when you download. SegmentList and SegmentTemplate/Timeline VOD are supported.";
-  }
-
-  status(
-   currentProvider==="vimeo"
-    ?"Vimeo file information loaded. The official download link will be requested when you tap Download."
-    :currentProvider==="twitch"
-     ?"Twitch clip information loaded. The official download link will be requested when you tap Download."
-     :currentProvider==="instagram"
-      ?"Public Instagram video file found. Ready to download."
-      :currentProvider==="facebook"
-       ?"Public Facebook video file found. Ready to download."
-       :currentProvider==="dash"
-        ?"Supported unencrypted DASH video link. Choose a quality and download."
-        :"Supported direct video link. Video information loaded.",
-   "ok"
-  );
-
- }catch(error){
-  status(error.message||"Could not connect to ILU HD.","error");
- }finally{
-  check.disabled=false;
-  check.textContent="Check link";
- }
+  if(currentProvider==="direct"){$("previewNote").textContent="Preview is available for supported direct video URLs.";videoPreview.src=target.href;preview.classList.add("show");videoPreview.load()}
+  else if(currentProvider==="vimeo")$("previewNote").textContent="Vimeo file details are loaded through its official API. The signed download is requested when you tap Download.";
+  else if(currentProvider==="twitch")$("previewNote").textContent="Twitch clip details are loaded through its official API. The authorized signed download is requested when you tap Download.";
+  else if(currentProvider==="instagram")$("previewNote").textContent="Public Instagram media URL found in page metadata. No account connection is used.";
+  else if(currentProvider==="facebook")$("previewNote").textContent="Public Facebook media URL found in page metadata. No account connection is used.";
+  else if(currentProvider==="dash"||currentProvider==="hls")$("previewNote").textContent="Stream details loaded. Choose a quality; Safari will handle the download directly.";
+  setStatus((currentProvider==="dash"||currentProvider==="hls")?"Supported unencrypted stream link. Choose a quality and download.":currentProvider==="vimeo"?"Vimeo file information loaded. The official download link will be requested when you tap Download.":currentProvider==="twitch"?"Twitch clip information loaded. The official download link will be requested when you tap Download.":currentProvider==="instagram"?"Public Instagram video file found. Ready to download.":currentProvider==="facebook"?"Public Facebook video file found. Ready to download.":"Supported direct video link. Video information loaded.","ok");
+ }catch(err){setStatus(err.message||"Could not connect to ILU HD.","error")}finally{check.disabled=false;check.textContent="Check link"}
 });
-
-/* ---------------------------------------------------------------
-   DOWNLOAD: DIRECT FILE WITH LIVE PROGRESS
----------------------------------------------------------------- */
-
+/* Direct MP4/WebM files keep the existing live-progress fetch + save flow. */
 async function downloadDirectVideo(){
- downloading=true;
- controller=new AbortController();
-
- downloadBtn.disabled=true;
- downloadBtn.textContent="Downloading...";
- cancelBtn.disabled=false;
- progressBox.classList.add("show");
- resetProgress();
- status("Starting video download...","info");
-
- let reader=null;
-
+ downloading=true;controller=new AbortController();downloadBtn.disabled=true;downloadBtn.textContent="Downloading...";cancelBtn.disabled=false;progressBox.classList.add("show");resetProgress();setStatus("Starting video download...","info");let reader=null;
  try{
-  const downloadQuery="url="+encodeURIComponent(currentUrl)+
-   (currentHlsHasVariants?"&quality_index="+encodeURIComponent(qualitySelect.value):"");
-  const response=await fetch(
-   API_BASE+"/download?"+downloadQuery,
-   {method:"GET",signal:controller.signal}
-  );
-
-  if(!response.ok){
-   let message="Download failed.";
-   try{
-    const error=await response.json();
-    message=error.detail||message;
-   }catch(error){}
-   throw Error(message);
-  }
-
-  if(!response.body){
-   throw Error("Your browser does not support streaming downloads.");
-  }
-
-  const contentLength=Number(response.headers.get("Content-Length"))||0;
-  const disposition=response.headers.get("Content-Disposition");
-  const filename=getFilename(
-   disposition,
-   document.getElementById("filename").textContent
-  );
-
-  document.getElementById("totalSize").textContent=
-   contentLength?bytes(contentLength):"Unknown";
-
-  reader=response.body.getReader();
-
-  const chunks=[];
-  let received=0;
-  let lastTime=Date.now();
-  let lastBytes=0;
-  const startTime=Date.now();
-
-  while(true){
-   const result=await reader.read();
-   if(result.done)break;
-
-   chunks.push(result.value);
-   received+=result.value.length;
-
-   const now=Date.now();
-   const elapsed=(now-lastTime)/1000;
-
-   if(elapsed>=0.4){
-    const currentSpeed=(received-lastBytes)/elapsed;
-    document.getElementById("speed").textContent=speedFormat(currentSpeed);
-    lastTime=now;
-    lastBytes=received;
-   }
-
-   document.getElementById("downloaded").textContent=bytes(received);
-
-   if(contentLength){
-    const progress=Math.min(100,(received/contentLength)*100);
-    progressFill.style.width=progress+"%";
-    percent.textContent=Math.floor(progress)+"%";
-   }else{
-    document.getElementById("progressTitle").textContent=
-     "Downloading · Size unknown";
-   }
-
-   document.getElementById("downloadState").textContent="Downloading";
-  }
-
-  if(contentLength&&received!==contentLength){
-   throw Error("Download incomplete. Please try again.");
-  }
-
-  if(received===0){
-   throw Error("Downloaded file is empty.");
-  }
-
-  const contentType=
-   response.headers.get("Content-Type")||"application/octet-stream";
-
-  const blob=new Blob(chunks,{type:contentType});
-  const objectUrl=URL.createObjectURL(blob);
-  const anchor=document.createElement("a");
-
-  anchor.href=objectUrl;
-  anchor.download=filename;
-  anchor.style.display="none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-
-  setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
-
-  progressFill.style.width="100%";
-  percent.textContent="100%";
-  document.getElementById("downloaded").textContent=bytes(received);
-  document.getElementById("speed").textContent=
-   speedFormat(received/((Date.now()-startTime)/1000||1));
-  document.getElementById("downloadState").textContent="Completed";
-  document.getElementById("progressTitle").textContent="✓ Download completed!";
-
-  status("Video downloaded successfully!","ok");
-  notify("Your video download is complete.");
-
- }catch(error){
-  if(error.name==="AbortError"){
-   document.getElementById("downloadState").textContent="Cancelled";
-   document.getElementById("progressTitle").textContent="Download cancelled";
-   status("Download cancelled.","error");
-  }else{
-   document.getElementById("downloadState").textContent="Failed";
-   document.getElementById("progressTitle").textContent="Download failed";
-   status(error.message||"Download failed. Please try again.","error");
-   notify("Video download failed.");
-  }
- }finally{
-  if(reader){
-   try{reader.releaseLock()}catch(error){}
-  }
-  controller=null;
-  downloading=false;
-  downloadBtn.disabled=false;
-  downloadBtn.textContent="⬇ Download Video";
-  cancelBtn.disabled=true;
- }
+  const response=await fetch(API_BASE+"/download?url="+encodeURIComponent(currentUrl),{signal:controller.signal});
+  if(!response.ok){let msg="Download failed.";try{const j=await response.json();msg=j.detail||msg}catch(e){}throw Error(msg)}
+  if(!response.body)throw Error("Your browser does not support streaming downloads.");
+  const length=Number(response.headers.get("Content-Length"))||0,filename=getFilename(response.headers.get("Content-Disposition"),$("filename").textContent);$("totalSize").textContent=length?bytes(length):"Unknown";
+  reader=response.body.getReader();const chunks=[];let received=0,lastTime=Date.now(),lastBytes=0;const start=Date.now();
+  while(true){const part=await reader.read();if(part.done)break;chunks.push(part.value);received+=part.value.length;const now=Date.now(),elapsed=(now-lastTime)/1000;
+   if(elapsed>=.4){$("speed").textContent=( (received-lastBytes)/elapsed/1048576).toFixed(2)+" MB/s";lastTime=now;lastBytes=received}
+   $("downloaded").textContent=bytes(received);if(length){const p=Math.min(100,received/length*100);progressFill.style.width=p+"%";percent.textContent=Math.floor(p)+"%"}else $("progressTitle").textContent="Downloading · Size unknown";$("downloadState").textContent="Downloading"}
+  if(length&&received!==length)throw Error("Download incomplete. Please try again.");if(!received)throw Error("Downloaded file is empty.");
+  const blob=new Blob(chunks,{type:response.headers.get("Content-Type")||"application/octet-stream"}),obj=URL.createObjectURL(blob),a=document.createElement("a");a.href=obj;a.download=filename;a.style.display="none";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(obj),60000);
+  progressFill.style.width="100%";percent.textContent="100%";$("downloaded").textContent=bytes(received);$("speed").textContent=(received/((Date.now()-start)/1000||1)/1048576).toFixed(2)+" MB/s";$("downloadState").textContent="Completed";$("progressTitle").textContent="✓ Download completed!";setStatus("Video downloaded successfully!","ok");notify("Your video download is complete.");
+ }catch(err){if(err.name==="AbortError"){$("downloadState").textContent="Cancelled";$("progressTitle").textContent="Download cancelled";setStatus("Download cancelled.","error")}else{$("downloadState").textContent="Failed";$("progressTitle").textContent="Download failed";setStatus(err.message||"Download failed.","error");notify("Video download failed.")}}
+ finally{if(reader){try{reader.releaseLock()}catch(e){}}controller=null;downloading=false;downloadBtn.disabled=false;downloadBtn.textContent="⬇ Download Video";cancelBtn.disabled=true}
 }
-
-/* ---------------------------------------------------------------
-   VIMEO OFFICIAL DOWNLOAD HANDOFF
-   Vimeo supplies temporary signed URLs. The backend requests a fresh
-   one from Vimeo and responds with a redirect. Browser handles save.
----------------------------------------------------------------- */
-
-function downloadVimeoVideo(){
- const downloadUrl=
-  API_BASE+"/download?url="+encodeURIComponent(currentUrl);
-
- progressBox.classList.add("show");
- document.getElementById("progressTitle").textContent=
-  "Opening official Vimeo download...";
- document.getElementById("percent").textContent="—";
- progressFill.style.width="100%";
- document.getElementById("downloadState").textContent=
-  "Handing off to Vimeo";
- document.getElementById("totalSize").textContent=
-  document.getElementById("size").textContent;
- status(
-  "Requesting the authorized Vimeo file. Your browser will handle the download.",
-  "info"
- );
-
- // A normal browser navigation follows the API's 302 to Vimeo's
- // temporary signed CDN URL. This avoids exposing the token to the client.
- window.location.assign(downloadUrl);
+/* HLS/DASH must be handed to the browser as a normal navigation.
+   Fetch+Blob buffers the complete segmented video in JS memory and can stall Safari. */
+function downloadStreamInBrowser(){
+ const q="url="+encodeURIComponent(currentUrl)+(currentHlsHasVariants?"&quality_index="+encodeURIComponent(qualitySelect.value):"");
+ progressBox.classList.add("show");resetProgress();$("progressTitle").textContent="Opening Safari download...";$("percent").textContent="—";progressFill.style.width="0%";
+ $("downloaded").textContent="Browser-managed";$("totalSize").textContent=$("size").textContent||"Unknown";$("speed").textContent="Safari";$("downloadState").textContent="Opening download";
+ setStatus("Your selected stream quality is being sent to Safari. Check Safari Downloads for progress.","info");
+ window.location.assign(API_BASE+"/download?"+q);
 }
-
-/* ---------------------------------------------------------------
-   DOWNLOAD BUTTON AND CANCELLATION
----------------------------------------------------------------- */
-
-function downloadTwitchVideo(){
- const downloadUrl=API_BASE+"/download?url="+encodeURIComponent(currentUrl);
- progressBox.classList.add("show");
- document.getElementById("progressTitle").textContent="Opening official Twitch clip download...";
- document.getElementById("percent").textContent="—";
- progressFill.style.width="100%";
- document.getElementById("downloadState").textContent="Handing off to Twitch";
- document.getElementById("totalSize").textContent="Official temporary link";
- status("Requesting the authorized Twitch clip file. Your browser will handle the download.","info");
- window.location.assign(downloadUrl);
-}
-
+function handoffDownload(providerLabel){const url=API_BASE+"/download?url="+encodeURIComponent(currentUrl);progressBox.classList.add("show");$("progressTitle").textContent="Opening official "+providerLabel+" download...";$("percent").textContent="—";progressFill.style.width="100%";$("downloadState").textContent="Handing off to "+providerLabel;setStatus("Requesting the authorized file. Your browser will handle the download.","info");window.location.assign(url)}
 downloadBtn.addEventListener("click",async()=>{
  if(!currentUrl||downloading)return;
-
- if(
-  "Notification" in window&&
-  Notification.permission==="default"
- ){
-  try{await Notification.requestPermission()}catch(error){}
- }
-
- if(currentProvider==="vimeo"){
-  downloadVimeoVideo();
-  return;
- }
- if(currentProvider==="twitch"){
-  downloadTwitchVideo();
-  return;
- }
- 
-
+ if("Notification"in window&&Notification.permission==="default"){try{await Notification.requestPermission()}catch(e){}}
+ if(currentProvider==="vimeo"){handoffDownload("Vimeo");return}if(currentProvider==="twitch"){handoffDownload("Twitch");return}
+ if(currentProvider==="dash"||currentProvider==="hls"){downloadStreamInBrowser();return}
  await downloadDirectVideo();
 });
-
-cancelBtn.addEventListener("click",()=>{
- if(controller){
-  cancelBtn.disabled=true;
-  controller.abort();
- }
-});
-
-cancelBtn.disabled=true;
-</script>
-</body>
-</html>
+cancelBtn.addEventListener("click",()=>{if(controller){cancelBtn.disabled=true;controller.abort()}});cancelBtn.disabled=true;
+</script></body></html>
