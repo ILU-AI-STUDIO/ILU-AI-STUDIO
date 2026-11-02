@@ -5,19 +5,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#080b14">
-<meta name="description" content="ILU HD video downloader, platform detection and media information">
+<meta name="description" content="ILU HD video downloader and media information">
 <title>ILU HD</title>
 <style>
 :root{
  color-scheme:dark;
  --bg:#080b14;
- --panel:#111827;
  --line:#29364d;
  --muted:#9eabc0;
  --blue:#36a4ff;
  --purple:#925cff;
  --green:#35d6a1;
- --red:#ff7185;
 }
 *{box-sizing:border-box}
 body{
@@ -68,11 +66,7 @@ label{
  margin-bottom:9px;
  color:#cad7ec;
 }
-.row{
- display:flex;
- gap:10px;
- flex-wrap:wrap;
-}
+.row{display:flex;gap:10px;flex-wrap:wrap}
 input{
  flex:1;
  min-width:0;
@@ -99,9 +93,7 @@ button{
  cursor:pointer;
 }
 button:disabled{opacity:.5;cursor:not-allowed}
-.cancel{
- background:linear-gradient(100deg,#d83d54,#a91d39);
-}
+.cancel{background:linear-gradient(100deg,#d83d54,#a91d39)}
 .status{
  display:none;
  margin-top:16px;
@@ -115,7 +107,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .status.error{border-color:#8f3947;color:#ffb9c2}
 .status.ok{border-color:#286b59;color:#a9f0d7}
 .status.info{border-color:#345c91;color:#b8d9ff}
-/* PLATFORM DETECTION */
+/* PLATFORM CARD */
 .platform-card{
  display:none;
  margin-top:18px;
@@ -131,23 +123,32 @@ button:disabled{opacity:.5;cursor:not-allowed}
  gap:14px;
 }
 .platform-icon{
- width:52px;
- height:52px;
+ width:55px;
+ height:55px;
  flex-shrink:0;
  display:grid;
  place-items:center;
- border-radius:14px;
+ border-radius:16px;
  background:#202d46;
  font-size:27px;
+ font-weight:900;
+ box-shadow:0 5px 20px #0005;
 }
-.platform-name{
- font-size:18px;
- font-weight:850;
-}
-.platform-caption{
- color:var(--muted);
- font-size:12px;
-}
+.icon-youtube{background:#59202b;color:#ff6666}
+.icon-instagram{background:#51254e;color:#ff9acb}
+.icon-facebook{background:#183d70;color:#70aaff}
+.icon-tiktok{background:#173a40;color:#8af5eb}
+.icon-x{background:#252a33;color:#fff}
+.icon-vimeo{background:#173d65;color:#75c5ff}
+.icon-dailymotion{background:#203b65;color:#8ebcff}
+.icon-twitch{background:#392365;color:#c5a3ff}
+.icon-reddit{background:#582b1c;color:#ff9b6a}
+.icon-snapchat{background:#5b551d;color:#fff28a}
+.icon-pinterest{background:#59202a;color:#ff8794}
+.icon-linkedin{background:#17415c;color:#83d4ff}
+.icon-threads{background:#30303a;color:#fff}
+.platform-name{font-size:18px;font-weight:850}
+.platform-caption{color:var(--muted);font-size:12px}
 .platform-badge{
  display:inline-block;
  margin-top:15px;
@@ -155,7 +156,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
  border-radius:999px;
  font-size:11px;
  font-weight:800;
- letter-spacing:.4px;
 }
 .badge-supported{
  color:#9cf0d2;
@@ -179,6 +179,33 @@ button:disabled{opacity:.5;cursor:not-allowed}
  font-size:11px;
  margin-top:10px;
  overflow-wrap:anywhere;
+}
+/* VIDEO PREVIEW */
+.preview{
+ display:none;
+ margin-top:18px;
+ padding:15px;
+ border:1px solid var(--line);
+ border-radius:16px;
+ background:#080e1b;
+}
+.preview.show{display:block}
+.preview-title{
+ font-size:14px;
+ font-weight:800;
+ margin-bottom:12px;
+}
+video{
+ display:block;
+ width:100%;
+ max-height:390px;
+ background:#000;
+ border-radius:12px;
+}
+.preview-note{
+ color:var(--muted);
+ font-size:11px;
+ margin-top:10px;
 }
 .details{
  display:none;
@@ -206,18 +233,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
  font-size:11px;
 }
 .item strong{overflow-wrap:anywhere}
-.actions{
- display:flex;
- gap:10px;
- flex-wrap:wrap;
-}
 .hint{
  font-size:12px;
  color:var(--muted);
  line-height:1.6;
  margin-top:16px;
 }
-/* DOWNLOAD PROGRESS */
+/* PROGRESS */
 .progress-box{
  display:none;
  margin-top:20px;
@@ -234,15 +256,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
  gap:10px;
  margin-bottom:12px;
 }
-.progress-title{
- font-size:13px;
- font-weight:800;
-}
-.percent{
- color:#65baff;
- font-size:20px;
- font-weight:900;
-}
+.progress-title{font-size:13px;font-weight:800}
+.percent{color:#65baff;font-size:20px;font-weight:900}
 .progress-track{
  width:100%;
  height:10px;
@@ -274,11 +289,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
  font-size:11px;
 }
 .progress-stat strong{font-size:14px}
-.progress-actions{
- display:flex;
- gap:10px;
- margin-top:15px;
-}
+.progress-actions{display:flex;gap:10px;margin-top:15px}
 .progress-actions button{flex:1}
 .pills{
  display:flex;
@@ -317,25 +328,16 @@ footer{
 <section class="card">
 <h1>Video Downloader</h1>
 <p class="desc">
-Paste a video link to automatically detect its platform, check download availability and view video information.
+Paste a video link to detect its platform, preview supported direct videos and check download availability.
 </p>
 <form id="form">
  <label for="url">VIDEO LINK</label>
  <div class="row">
-  <input
-   id="url"
-   type="url"
-   placeholder="Paste your video link here..."
-   required
-   autocomplete="url"
-  >
-  <button id="check" type="submit">
-   Check link
-  </button>
+  <input id="url" type="url" placeholder="Paste your video link here..." required autocomplete="url">
+  <button id="check" type="submit">Check link</button>
  </div>
 </form>
 <div id="status" class="status" role="status" aria-live="polite"></div>
-<!-- PLATFORM DETECTION CARD -->
 <section id="platformCard" class="platform-card" aria-live="polite">
  <div class="platform-heading">
   <div id="platformIcon" class="platform-icon">🔎</div>
@@ -348,45 +350,45 @@ Paste a video link to automatically detect its platform, check download availabi
  <p id="platformMessage" class="platform-message"></p>
  <div id="platformHost" class="platform-host"></div>
 </section>
+<!-- VIDEO PREVIEW -->
+<section id="preview" class="preview">
+ <div class="preview-title">🎬 Video Preview</div>
+ <video id="videoPreview" controls playsinline preload="metadata"></video>
+ <p class="preview-note" id="previewNote">
+  Preview is available for supported direct video URLs.
+ </p>
+</section>
 <!-- VIDEO INFORMATION -->
 <section id="details" class="details">
-<h2 style="font-size:17px;margin:0">
-Video Information
-</h2>
-<div class="grid">
- <div class="item">
-  <small>File name</small>
-  <strong id="filename">-</strong>
+ <h2 style="font-size:17px;margin:0">Video Information</h2>
+ <div class="grid">
+  <div class="item">
+   <small>File name</small>
+   <strong id="filename">-</strong>
+  </div>
+  <div class="item">
+   <small>Format</small>
+   <strong id="format">-</strong>
+  </div>
+  <div class="item">
+   <small>File size</small>
+   <strong id="size">Not provided</strong>
+  </div>
+  <div class="item">
+   <small>Duration</small>
+   <strong id="duration">Not provided</strong>
+  </div>
  </div>
- <div class="item">
-  <small>Format</small>
-  <strong id="format">-</strong>
+ <div>
+  <button id="download" type="button">Download video</button>
  </div>
- <div class="item">
-  <small>File size</small>
-  <strong id="size">Not provided</strong>
- </div>
- <div class="item">
-  <small>Duration</small>
-  <strong id="duration">Not provided</strong>
- </div>
-</div>
-<div class="actions">
- <button id="download" type="button">
-  Download video
- </button>
-</div>
-<p class="hint" id="note"></p>
+ <p class="hint" id="note"></p>
 </section>
 <!-- DOWNLOAD PROGRESS -->
 <section id="progressBox" class="progress-box">
  <div class="progress-top">
-  <span class="progress-title" id="progressTitle">
-   Downloading video...
-  </span>
-
-0%
-
+  <span class="progress-title" id="progressTitle">Downloading video...</span>
+  <span class="percent" id="percent">0%</span>
  </div>
  <div class="progress-track">
   <div id="progressFill" class="progress-fill"></div>
@@ -410,26 +412,22 @@ Video Information
   </div>
  </div>
  <div class="progress-actions">
-  <button id="cancel" class="cancel" type="button">
-   Cancel Download
-  </button>
+  <button id="cancel" class="cancel" type="button">Cancel Download</button>
  </div>
 </section>
 <div class="pills">
  <span class="pill">13 Platforms detected</span>
+ <span class="pill">Video preview</span>
  <span class="pill">No login</span>
  <span class="pill">No ads</span>
  <span class="pill">iPhone + Android</span>
  <span class="pill">Live progress</span>
 </div>
 <p class="hint">
-ILU HD can identify supported social media platforms. Platform detection does not mean video downloading is available. Direct video-file downloads work only from hostnames enabled by the site owner.
-
-Download only content you own or are authorized to save. Creator permissions and platform rules apply. Private or DRM-protected content is not supported.
-
+Platform detection does not mean downloading is available. Direct video downloads work only from hostnames enabled by the site owner. Download only content you own or are authorized to save. Private and DRM-protected content is not supported.
 </p>
 </section>
-<footer>ILU HD · Personal edition · v2.4.0</footer>
+<footer>ILU HD · Personal edition · v2.5.0</footer>
 </main>
 <script>
 const API_BASE="https://ilu-ai-studio.onrender.com";
@@ -441,43 +439,44 @@ const details=document.getElementById("details");
 const downloadBtn=document.getElementById("download");
 const cancelBtn=document.getElementById("cancel");
 const platformCard=document.getElementById("platformCard");
+const preview=document.getElementById("preview");
+const videoPreview=document.getElementById("videoPreview");
 const progressBox=document.getElementById("progressBox");
 const progressFill=document.getElementById("progressFill");
 const percent=document.getElementById("percent");
 let currentUrl="";
 let controller=null;
 let downloading=false;
-/* PLATFORM ICONS */
 const platformIcons={
- "YouTube":"▶️",
- "Instagram":"📸",
- "Facebook":"📘",
- "TikTok":"🎵",
- "X (Twitter)":"𝕏",
- "Vimeo":"🎬",
- "Dailymotion":"📺",
- "Twitch":"🟣",
- "Reddit":"🤖",
- "Snapchat":"👻",
- "Pinterest":"📌",
- "LinkedIn":"💼",
- "Threads":"🧵",
- "Direct Video / Other":"🎞️"
+ "YouTube":{icon:"▶",className:"icon-youtube"},
+ "Instagram":{icon:"◎",className:"icon-instagram"},
+ "Facebook":{icon:"f",className:"icon-facebook"},
+ "TikTok":{icon:"♪",className:"icon-tiktok"},
+ "X (Twitter)":{icon:"𝕏",className:"icon-x"},
+ "Vimeo":{icon:"v",className:"icon-vimeo"},
+ "Dailymotion":{icon:"D",className:"icon-dailymotion"},
+ "Twitch":{icon:"▣",className:"icon-twitch"},
+ "Reddit":{icon:"●",className:"icon-reddit"},
+ "Snapchat":{icon:"👻",className:"icon-snapchat"},
+ "Pinterest":{icon:"P",className:"icon-pinterest"},
+ "LinkedIn":{icon:"in",className:"icon-linkedin"},
+ "Threads":{icon:"@",className:"icon-threads"},
+ "Direct Video / Other":{icon:"▶",className:""}
 };
 function status(message,kind=""){
  statusBox.className="status show"+(kind?" "+kind:"");
  statusBox.textContent=message;
 }
-/* SHOW PLATFORM RESULT */
 function showPlatform(result){
  const name=result.platform||"Unknown platform";
- const icon=platformIcons[name]||"🔎";
- const available=result.download_available===true;
- document.getElementById("platformIcon").textContent=icon;
+ const config=platformIcons[name]||{icon:"🔎",className:""};
+ const icon=document.getElementById("platformIcon");
+ icon.textContent=config.icon;
+ icon.className="platform-icon "+config.className;
  document.getElementById("platformName").textContent=name;
  const badge=document.getElementById("platformBadge");
  badge.className="platform-badge";
- if(available){
+ if(result.download_available===true){
   badge.textContent="✓ DOWNLOAD AVAILABLE";
   badge.classList.add("badge-supported");
  }else{
@@ -485,23 +484,33 @@ function showPlatform(result){
   badge.classList.add("badge-unavailable");
  }
  document.getElementById("platformMessage").textContent=
-  result.message||(
-   available
-    ?"This link is supported for direct video downloads."
-    :"This platform is detected, but downloading is not currently available."
-  );
+  result.message||"Platform detection completed.";
  document.getElementById("platformHost").textContent=
   result.host?"Detected hostname: "+result.host:"";
  platformCard.classList.add("show");
 }
+function clearPreview(){
+ videoPreview.pause();
+ videoPreview.removeAttribute("src");
+ videoPreview.load();
+ preview.classList.remove("show");
+}
+videoPreview.addEventListener("error",()=>{
+ document.getElementById("previewNote").textContent=
+  "Preview is unavailable in this browser. You can still try downloading the supported file.";
+});
+videoPreview.addEventListener("loadedmetadata",()=>{
+ if(Number.isFinite(videoPreview.duration)){
+  document.getElementById("duration").textContent=
+   Math.floor(videoPreview.duration/60)+":"+
+   String(Math.floor(videoPreview.duration%60)).padStart(2,"0");
+ }
+});
 function bytes(n){
  if(n==null)return "Unknown";
  const u=["B","KB","MB","GB"];
  let i=0,v=n;
- while(v>=1024&&i<u.length-1){
-  v/=1024;
-  i++;
- }
+ while(v>=1024&&i<u.length-1){v/=1024;i++;}
  return v.toFixed(i?2:0)+" "+u[i];
 }
 function speedFormat(n){
@@ -509,9 +518,7 @@ function speedFormat(n){
 }
 function notify(message){
  if("Notification" in window && Notification.permission==="granted"){
-  try{
-   new Notification("ILU HD",{body:message});
-  }catch(e){}
+  try{new Notification("ILU HD",{body:message});}catch(e){}
  }
 }
 function getFilename(disposition,fallback){
@@ -534,21 +541,18 @@ function resetProgress(){
  document.getElementById("downloadState").textContent="Preparing...";
  document.getElementById("progressTitle").textContent="Downloading video...";
 }
-/* CHECK LINK AND DETECT PLATFORM */
+/* CHECK LINK */
 form.addEventListener("submit",async e=>{
  e.preventDefault();
  if(downloading)return;
  details.classList.remove("show");
  platformCard.classList.remove("show");
+ clearPreview();
  currentUrl="";
  let target;
  try{
   target=new URL(input.value.trim());
-  if(
-   target.protocol!=="https:"||
-   target.username||
-   target.password
-  ){
+  if(target.protocol!=="https:"||target.username||target.password){
    throw Error("Enter a valid HTTPS video URL.");
   }
  }catch(err){
@@ -566,17 +570,14 @@ form.addEventListener("submit",async e=>{
   if(!inspect.ok){
    throw Error(r.detail||"Could not inspect this link.");
   }
-  /* DISPLAY DETECTED PLATFORM */
   showPlatform(r);
-  /* STOP IF DOWNLOAD IS NOT AVAILABLE */
   if(r.download_available!==true){
    status(
-    r.message||"Platform detected, but downloading is not currently available.",
+    r.message||"Platform detected, but downloading is not available.",
     "info"
    );
    return;
   }
-  /* FETCH DIRECT VIDEO INFORMATION */
   const infoResponse=await fetch(
    API_BASE+"/info?url="+encodeURIComponent(target.href)
   );
@@ -585,26 +586,21 @@ form.addEventListener("submit",async e=>{
    throw Error(info.detail||"Video information is unavailable.");
   }
   currentUrl=target.href;
-  document.getElementById("filename").textContent=
-   info.filename||"-";
-  document.getElementById("format").textContent=
-   info.format||"-";
-  document.getElementById("size").textContent=
-   bytes(info.size_bytes);
-  document.getElementById("duration").textContent=
-   info.duration||"Not provided";
-  document.getElementById("note").textContent=
-   info.note||"";
+  document.getElementById("filename").textContent=info.filename||"-";
+  document.getElementById("format").textContent=info.format||"-";
+  document.getElementById("size").textContent=bytes(info.size_bytes);
+  document.getElementById("duration").textContent=info.duration||"Not provided";
+  document.getElementById("note").textContent=info.note||"";
   details.classList.add("show");
-  status(
-   "Supported direct video link. Video information loaded.",
-   "ok"
-  );
+  /* LOAD DIRECT VIDEO PREVIEW */
+  document.getElementById("previewNote").textContent=
+   "Preview is available for supported direct video URLs.";
+  videoPreview.src=target.href;
+  preview.classList.add("show");
+  videoPreview.load();
+  status("Supported direct video link. Video information loaded.","ok");
  }catch(err){
-  status(
-   err.message||"Could not connect to ILU HD.",
-   "error"
-  );
+  status(err.message||"Could not connect to ILU HD.","error");
  }finally{
   check.disabled=false;
   check.textContent="Check link";
@@ -614,9 +610,7 @@ form.addEventListener("submit",async e=>{
 downloadBtn.addEventListener("click",async()=>{
  if(!currentUrl||downloading)return;
  if("Notification" in window && Notification.permission==="default"){
-  try{
-   await Notification.requestPermission();
-  }catch(e){}
+  try{await Notification.requestPermission();}catch(e){}
  }
  downloading=true;
  controller=new AbortController();
@@ -630,10 +624,7 @@ downloadBtn.addEventListener("click",async()=>{
  try{
   const response=await fetch(
    API_BASE+"/download?url="+encodeURIComponent(currentUrl),
-   {
-    method:"GET",
-    signal:controller.signal
-   }
+   {method:"GET",signal:controller.signal}
   );
   if(!response.ok){
    let message="Download failed.";
@@ -646,10 +637,8 @@ downloadBtn.addEventListener("click",async()=>{
   if(!response.body){
    throw Error("Your browser does not support streaming downloads.");
   }
-  const contentLength=
-   Number(response.headers.get("Content-Length"))||0;
-  const disposition=
-   response.headers.get("Content-Disposition");
+  const contentLength=Number(response.headers.get("Content-Length"))||0;
+  const disposition=response.headers.get("Content-Disposition");
   const filename=getFilename(
    disposition,
    document.getElementById("filename").textContent
@@ -672,35 +661,28 @@ downloadBtn.addEventListener("click",async()=>{
    const elapsed=(now-lastTime)/1000;
    if(elapsed>=0.4){
     const currentSpeed=(received-lastBytes)/elapsed;
-    document.getElementById("speed").textContent=
-     speedFormat(currentSpeed);
+    document.getElementById("speed").textContent=speedFormat(currentSpeed);
     lastTime=now;
     lastBytes=received;
    }
-   document.getElementById("downloaded").textContent=
-    bytes(received);
+   document.getElementById("downloaded").textContent=bytes(received);
    if(contentLength){
-    const progress=Math.min(
-     100,
-     (received/contentLength)*100
-    );
+    const progress=Math.min(100,(received/contentLength)*100);
     progressFill.style.width=progress+"%";
     percent.textContent=Math.floor(progress)+"%";
    }else{
     document.getElementById("progressTitle").textContent=
      "Downloading · Size unknown";
    }
-   document.getElementById("downloadState").textContent=
-    "Downloading";
+   document.getElementById("downloadState").textContent="Downloading";
   }
-  if(contentLength && received!==contentLength){
+  if(contentLength&&received!==contentLength){
    throw Error("Download incomplete. Please try again.");
   }
   if(received===0){
    throw Error("Downloaded file is empty.");
   }
-  const contentType=
-   response.headers.get("Content-Type")||
+  const contentType=response.headers.get("Content-Type")||
    "application/octet-stream";
   const blob=new Blob(chunks,{type:contentType});
   const objectUrl=URL.createObjectURL(blob);
@@ -711,46 +693,30 @@ downloadBtn.addEventListener("click",async()=>{
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(()=>{
-   URL.revokeObjectURL(objectUrl);
-  },60000);
+  setTimeout(()=>URL.revokeObjectURL(objectUrl),60000);
   progressFill.style.width="100%";
   percent.textContent="100%";
-  document.getElementById("downloaded").textContent=
-   bytes(received);
+  document.getElementById("downloaded").textContent=bytes(received);
   document.getElementById("speed").textContent=
-   speedFormat(
-    received/((Date.now()-startTime)/1000||1)
-   );
-  document.getElementById("downloadState").textContent=
-   "Completed";
-  document.getElementById("progressTitle").textContent=
-   "Download completed!";
+   speedFormat(received/((Date.now()-startTime)/1000||1));
+  document.getElementById("downloadState").textContent="Completed";
+  document.getElementById("progressTitle").textContent="Download completed!";
   status("Video downloaded successfully!","ok");
   notify("Your video download is complete.");
  }catch(err){
   if(err.name==="AbortError"){
-   document.getElementById("downloadState").textContent=
-    "Cancelled";
-   document.getElementById("progressTitle").textContent=
-    "Download cancelled";
+   document.getElementById("downloadState").textContent="Cancelled";
+   document.getElementById("progressTitle").textContent="Download cancelled";
    status("Download cancelled.","error");
   }else{
-   document.getElementById("downloadState").textContent=
-    "Failed";
-   document.getElementById("progressTitle").textContent=
-    "Download failed";
-   status(
-    err.message||"Download failed. Please try again.",
-    "error"
-   );
+   document.getElementById("downloadState").textContent="Failed";
+   document.getElementById("progressTitle").textContent="Download failed";
+   status(err.message||"Download failed. Please try again.","error");
    notify("Video download failed.");
   }
  }finally{
   if(reader){
-   try{
-    reader.releaseLock();
-   }catch(e){}
+   try{reader.releaseLock();}catch(e){}
   }
   controller=null;
   downloading=false;
