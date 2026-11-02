@@ -242,7 +242,7 @@ Platform detection does not mean downloading is available. ILU HD does not ask v
 </p>
 </section>
 
-<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.3.0</footer>
+<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.4.0</footer>
 </main>
 
 <script>
@@ -470,10 +470,10 @@ form.addEventListener("submit",async event=>{
     "Twitch clip details are loaded through its official API. The authorized signed download is requested when you tap Download.";
   }else if(currentProvider==="instagram"){
    document.getElementById("previewNote").textContent=
-    "Direct Instagram CDN video file. The link may expire; no Instagram account connection is used.";
+    "Public Instagram media URL found in page metadata. No account connection is used.";
   }else if(currentProvider==="facebook"){
    document.getElementById("previewNote").textContent=
-    "Direct Facebook CDN video file. The link may expire; no Facebook account connection is used.";
+    "Public Facebook media URL found in page metadata. No account connection is used.";
   }
 
   status(
@@ -482,9 +482,9 @@ form.addEventListener("submit",async event=>{
     :currentProvider==="twitch"
      ?"Twitch clip information loaded. The official download link will be requested when you tap Download."
      :currentProvider==="instagram"
-      ?"Direct Instagram media link verified. Ready to download."
+      ?"Public Instagram video file found. Ready to download."
       :currentProvider==="facebook"
-       ?"Direct Facebook media link verified. Ready to download."
+       ?"Public Facebook video file found. Ready to download."
        :"Supported direct video link. Video information loaded.",
    "ok"
   );
@@ -719,3 +719,4 @@ cancelBtn.disabled=true;
 </script>
 </body>
 </html>
+
