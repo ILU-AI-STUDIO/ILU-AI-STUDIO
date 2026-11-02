@@ -1,19 +1,29 @@
 import ipaddress
 import os
+import re
 import socket
 from urllib.parse import urlparse, unquote
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, RedirectResponse
 
-app = FastAPI(title="ILU HD API", version="2.3.0")
+VERSION = "3.0.0"
+USER_AGENT = "ILU-HD/3.0"
+VIMEO_API = "https://api.vimeo.com"
 
+app = FastAPI(title="ILU HD API", version=VERSION)
+
+# Render environment:
+# FRONTEND_ORIGINS=https://ilu-ai-studio.github.io
+# ALLOWED_HOSTS=www.w3schools.com
+# MAX_DOWNLOAD_MB=300
+# VIMEO_ACCESS_TOKEN=your_private_token (optional; never put it in GitHub)
 origins = [
-    x.strip().rstrip("/")
-    for x in os.getenv("FRONTEND_ORIGINS", "").split(",")
-    if x.strip()
+    value.strip().rstrip("/")
+    for value in os.getenv("FRONTEND_ORIGINS", "").split(",")
+    if value.strip()
 ]
 
 app.add_middleware(
@@ -24,20 +34,23 @@ app.add_middleware(
     expose_headers=[
         "Content-Disposition",
         "Content-Length",
-        "Content-Type"
+        "Content-Type",
     ],
 )
 
-allowed_hosts = {
-    x.strip().lower().rstrip(".")
-    for x in os.getenv("ALLOWED_HOSTS", "").split(",")
-    if x.strip()
+ALLOWED_HOSTS = {
+    value.strip().lower().rstrip(".")
+    for value in os.getenv("ALLOWED_HOSTS", "").split(",")
+    if value.strip()
 }
 
 MAX_BYTES = int(os.getenv("MAX_DOWNLOAD_MB", "300")) * 1024 * 1024
+VIMEO_ACCESS_TOKEN = os.getenv("VIMEO_ACCESS_TOKEN", "").strip()
 
 
+# -------------------------------------------------------------------
 # PLATFORM DETECTION
+# -------------------------------------------------------------------
 
 PLATFORM_DOMAINS = {
     "YouTube": [
@@ -45,53 +58,22 @@ PLATFORM_DOMAINS = {
         "youtu.be",
         "youtube-nocookie.com",
     ],
-    "Instagram": [
-        "instagram.com",
-    ],
-    "Facebook": [
-        "facebook.com",
-        "fb.watch",
-    ],
-    "TikTok": [
-        "tiktok.com",
-    ],
-    "X (Twitter)": [
-        "x.com",
-        "twitter.com",
-        "t.co",
-    ],
-    "Vimeo": [
-        "vimeo.com",
-    ],
-    "Dailymotion": [
-        "dailymotion.com",
-        "dai.ly",
-    ],
-    "Twitch": [
-        "twitch.tv",
-    ],
-    "Reddit": [
-        "reddit.com",
-        "redd.it",
-    ],
-    "Snapchat": [
-        "snapchat.com",
-        "snap.com",
-    ],
-    "Pinterest": [
-        "pinterest.com",
-        "pin.it",
-    ],
-    "LinkedIn": [
-        "linkedin.com",
-    ],
-    "Threads": [
-        "threads.net",
-    ],
+    "Instagram": ["instagram.com"],
+    "Facebook": ["facebook.com", "fb.watch"],
+    "TikTok": ["tiktok.com"],
+    "X (Twitter)": ["x.com", "twitter.com", "t.co"],
+    "Vimeo": ["vimeo.com"],
+    "Dailymotion": ["dailymotion.com", "dai.ly"],
+    "Twitch": ["twitch.tv"],
+    "Reddit": ["reddit.com", "redd.it"],
+    "Snapchat": ["snapchat.com", "snap.com"],
+    "Pinterest": ["pinterest.com", "pin.it"],
+    "LinkedIn": ["linkedin.com"],
+    "Threads": ["threads.net"],
 }
 
 
-def identify_platform(host):
+def identify_platform(host: str) -> str:
     host = host.lower().rstrip(".")
 
     for platform, domains in PLATFORM_DOMAINS.items():
@@ -102,55 +84,58 @@ def identify_platform(host):
     return "Direct Video / Other"
 
 
-def parse_https_url(raw):
+# -------------------------------------------------------------------
+# URL AND NETWORK VALIDATION
+# -------------------------------------------------------------------
+
+def parse_https_url(raw: str):
     try:
-        p = urlparse(raw)
+        parsed = urlparse(raw.strip())
 
         if (
-            p.scheme != "https"
-            or not p.hostname
-            or p.username
-            or p.password
-            or p.port not in (None, 443)
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.port not in (None, 443)
         ):
-            raise ValueError
+            raise ValueError("Invalid HTTPS URL")
 
-        host = p.hostname.encode("idna").decode("ascii").lower().rstrip(".")
+        host = (
+            parsed.hostname.encode("idna")
+            .decode("ascii")
+            .lower()
+            .rstrip(".")
+        )
 
-        return p, host
+        return parsed, host
 
     except Exception:
-        raise HTTPException(400, "Enter a valid HTTPS URL.")
-
-
-def validate_direct_host(host):
-    if identify_platform(host) != "Direct Video / Other":
         raise HTTPException(
-            415,
-            "Platform page links require an authorized integration."
+            status_code=400,
+            detail="Enter a valid HTTPS URL.",
         )
 
-    if not allowed_hosts or host not in allowed_hosts:
-        raise HTTPException(
-            403,
-            "This exact video hostname is not enabled."
-        )
 
+def validate_public_host(host: str):
+    """Reject private, loopback, link-local and other non-public DNS results."""
     try:
-        infos = socket.getaddrinfo(
+        records = socket.getaddrinfo(
             host,
             443,
-            type=socket.SOCK_STREAM
+            type=socket.SOCK_STREAM,
         )
 
-        if not infos:
-            raise ValueError
+        if not records:
+            raise ValueError("No DNS records")
 
-        for info in infos:
-            if not ipaddress.ip_address(info[4][0]).is_global:
+        for record in records:
+            address = ipaddress.ip_address(record[4][0])
+
+            if not address.is_global:
                 raise HTTPException(
-                    400,
-                    "Private or local network addresses are not allowed."
+                    status_code=400,
+                    detail="Private or local network addresses are not allowed.",
                 )
 
     except HTTPException:
@@ -158,56 +143,247 @@ def validate_direct_host(host):
 
     except Exception:
         raise HTTPException(
-            400,
-            "The video host could not be validated."
+            status_code=400,
+            detail="The video host could not be validated.",
         )
 
 
-def safe_filename(path):
-    name = unquote(path.rsplit("/", 1)[-1]) or "ilu-hd-video"
+def validate_direct_host(host: str):
+    if identify_platform(host) != "Direct Video / Other":
+        raise HTTPException(
+            status_code=415,
+            detail="Platform page links require an authorized integration.",
+        )
+
+    if not ALLOWED_HOSTS or host not in ALLOWED_HOSTS:
+        raise HTTPException(
+            status_code=403,
+            detail="This exact video hostname is not enabled.",
+        )
+
+    validate_public_host(host)
+
+
+def safe_filename(path: str, fallback: str = "ilu-hd-video") -> str:
+    name = unquote(path.rsplit("/", 1)[-1]) or fallback
 
     name = "".join(
-        c for c in name
-        if c.isalnum() or c in "._- "
+        character
+        for character in name
+        if character.isalnum() or character in "._- "
     )[:100].strip()
 
-    return name or "ilu-hd-video"
+    return name or fallback
 
+
+# -------------------------------------------------------------------
+# VIMEO OFFICIAL API INTEGRATION
+# -------------------------------------------------------------------
+
+def extract_vimeo_id(parsed) -> str | None:
+    """
+    Supports standard Vimeo video URLs and player.vimeo.com/video/{id}.
+    This extracts a numeric video ID only. Access is still controlled by
+    Vimeo's API token permissions and the video's own download settings.
+    """
+    match = re.search(
+        r"(?:^|/)(?:video/)?([0-9]{5,})(?:$|/)",
+        parsed.path,
+    )
+
+    return match.group(1) if match else None
+
+
+async def get_vimeo_video(video_id: str) -> dict:
+    if not VIMEO_ACCESS_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Vimeo integration is not configured. "
+                "Add VIMEO_ACCESS_TOKEN in Render environment variables."
+            ),
+        )
+
+    headers = {
+        "Authorization": f"Bearer {VIMEO_ACCESS_TOKEN}",
+        "Accept": "application/vnd.vimeo.*+json;version=3.4",
+        "User-Agent": USER_AGENT,
+    }
+
+    timeout = httpx.Timeout(
+        20.0,
+        connect=10.0,
+    )
+
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        trust_env=False,
+        follow_redirects=False,
+    ) as client:
+        try:
+            response = await client.get(
+                f"{VIMEO_API}/videos/{video_id}",
+                headers=headers,
+                params={
+                    "fields": (
+                        "uri,name,duration,pictures.sizes,download"
+                    )
+                },
+            )
+
+        except httpx.HTTPError:
+            raise HTTPException(
+                status_code=502,
+                detail="Could not contact the Vimeo API.",
+            )
+
+    if response.status_code == 401:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Vimeo rejected the access token. "
+                "Check the token and its permissions."
+            ),
+        )
+
+    if response.status_code == 403:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Vimeo denied file access. The token needs the required "
+                "public, private and video_files scopes, and the account "
+                "must be eligible to access downloadable files."
+            ),
+        )
+
+    if response.status_code == 404:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Vimeo video was not found, or this account cannot access it."
+            ),
+        )
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Vimeo API returned HTTP {response.status_code}.",
+        )
+
+    try:
+        data = response.json()
+    except ValueError:
+        raise HTTPException(
+            status_code=502,
+            detail="Vimeo returned an unreadable response.",
+        )
+
+    if not isinstance(data, dict):
+        raise HTTPException(
+            status_code=502,
+            detail="Vimeo returned an unexpected video response.",
+        )
+
+    return data
+
+
+def choose_vimeo_download(data: dict) -> dict:
+    downloads = data.get("download") or []
+
+    if not isinstance(downloads, list) or not downloads:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Vimeo did not provide a download link. The video owner "
+                "may have disabled downloads, or the account/token may not "
+                "have permission to access downloadable files."
+            ),
+        )
+
+    usable = [
+        item
+        for item in downloads
+        if isinstance(item, dict) and item.get("link")
+    ]
+
+    if not usable:
+        raise HTTPException(
+            status_code=404,
+            detail="No downloadable Vimeo file was returned.",
+        )
+
+    # Prefer the highest available resolution, then the largest file.
+    usable.sort(
+        key=lambda item: (
+            int(item.get("height") or 0),
+            int(item.get("size") or 0),
+        ),
+        reverse=True,
+    )
+
+    return usable[0]
+
+
+# -------------------------------------------------------------------
+# HEALTH AND PLATFORM INSPECTION
+# -------------------------------------------------------------------
 
 @app.get("/health")
 def health():
     return {
         "ok": True,
         "service": "ILU HD API",
-        "version": "2.3.0"
+        "version": VERSION,
+        "vimeo_configured": bool(VIMEO_ACCESS_TOKEN),
     }
 
 
-# AUTOMATIC PLATFORM INSPECTION
-
 @app.get("/inspect")
-def inspect(url: str = Query(..., min_length=8, max_length=2048)):
-
-    _, host = parse_https_url(url)
-
+def inspect(
+    url: str = Query(..., min_length=8, max_length=2048),
+):
+    parsed, host = parse_https_url(url)
     platform = identify_platform(host)
 
-    if platform != "Direct Video / Other":
+    if platform == "Vimeo":
+        video_id = extract_vimeo_id(parsed)
+        configured = bool(VIMEO_ACCESS_TOKEN and video_id)
 
+        return {
+            "platform": platform,
+            "host": host,
+            "download_available": configured,
+            "integration_required": not configured,
+            "provider": "vimeo" if configured else None,
+            "message": (
+                "Vimeo detected. Official API access is configured. "
+                "The actual download is confirmed when Vimeo returns an "
+                "authorized file link."
+                if configured
+                else (
+                    "Vimeo detected. Configure an eligible Vimeo API token "
+                    "with the required scopes. Downloads are available only "
+                    "when Vimeo supplies an authorized download link."
+                )
+            ),
+        }
+
+    if platform != "Direct Video / Other":
         return {
             "platform": platform,
             "host": host,
             "download_available": False,
             "integration_required": True,
+            "provider": None,
             "message": (
-                f"{platform} detected successfully. "
-                "Download requires an authorized platform integration "
-                "or a creator-enabled downloadable video."
-            )
+                f"{platform} detected successfully. Its authorized download "
+                "integration is not enabled yet. ILU HD does not bypass "
+                "login, DRM, privacy or platform restrictions."
+            ),
         }
 
     supported = bool(
-        allowed_hosts and host in allowed_hosts
+        ALLOWED_HOSTS and host in ALLOWED_HOSTS
     )
 
     return {
@@ -215,118 +391,205 @@ def inspect(url: str = Query(..., min_length=8, max_length=2048)):
         "host": host,
         "download_available": supported,
         "integration_required": False,
+        "provider": "direct" if supported else None,
         "message": (
             "Trusted direct-video host."
             if supported
-            else "This hostname is not enabled."
-        )
+            else "This exact hostname is not enabled."
+        ),
     }
 
 
-@app.get("/info")
-async def info(url: str = Query(..., min_length=12, max_length=2048)):
+# -------------------------------------------------------------------
+# VIDEO INFORMATION
+# -------------------------------------------------------------------
 
+@app.get("/info")
+async def info(
+    url: str = Query(..., min_length=12, max_length=2048),
+):
     parsed, host = parse_https_url(url)
+    platform = identify_platform(host)
+
+    if platform == "Vimeo":
+        video_id = extract_vimeo_id(parsed)
+
+        if not video_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not read a Vimeo video ID from this URL.",
+            )
+
+        data = await get_vimeo_video(video_id)
+        selected = choose_vimeo_download(data)
+
+        pictures = data.get("pictures") or {}
+        picture_sizes = pictures.get("sizes") or []
+
+        thumbnail = (
+            picture_sizes[-1].get("link")
+            if picture_sizes
+            else None
+        )
+
+        video_name = data.get("name") or f"vimeo-{video_id}"
+        filename = safe_filename(video_name + ".mp4")
+        size = selected.get("size")
+        mime = selected.get("type") or "video/mp4"
+
+        return {
+            "provider": "vimeo",
+            "host": host,
+            "filename": filename,
+            "content_type": mime,
+            "size_bytes": size,
+            "size_mb": (
+                round(size / (1024 * 1024), 2)
+                if isinstance(size, (int, float))
+                else None
+            ),
+            "format": mime.split("/")[-1].upper(),
+            "duration": data.get("duration"),
+            "thumbnail": thumbnail,
+            "quality": (
+                selected.get("quality")
+                or selected.get("rendition")
+                or selected.get("height")
+            ),
+            "note": (
+                "Official Vimeo download link. Vimeo signed links are "
+                "temporary and are requested again when you start a download."
+            ),
+        }
 
     validate_direct_host(host)
 
     timeout = httpx.Timeout(
         15.0,
-        connect=8.0
+        connect=8.0,
     )
 
     async with httpx.AsyncClient(
         follow_redirects=False,
         timeout=timeout,
-        trust_env=False
+        trust_env=False,
     ) as client:
-
         try:
             response = await client.head(
                 url,
-                headers={"User-Agent": "ILU-HD/2.3"}
+                headers={"User-Agent": USER_AGENT},
             )
 
         except httpx.HTTPError:
             raise HTTPException(
-                502,
-                "Could not contact the video host."
+                status_code=502,
+                detail="Could not contact the video host.",
             )
 
-        if response.status_code in (301, 302, 303, 307, 308):
-            raise HTTPException(
-                400,
-                "Redirected links are not supported."
-            )
-
-        if response.status_code >= 400:
-            raise HTTPException(
-                502,
-                f"Video host returned HTTP {response.status_code}."
-            )
-
-        content_type = response.headers.get(
-            "content-type", ""
-        ).split(";")[0].lower()
-
-        if not (
-            content_type.startswith("video/")
-            or content_type == "application/octet-stream"
-        ):
-            raise HTTPException(
-                415,
-                "This URL does not appear to be a direct video file."
-            )
-
-        raw_size = response.headers.get("content-length")
-
-        size = (
-            int(raw_size)
-            if raw_size and raw_size.isdigit()
-            else None
+    if response.status_code in (301, 302, 303, 307, 308):
+        raise HTTPException(
+            status_code=400,
+            detail="Redirected direct-video links are not supported.",
         )
 
-        if size is not None and size > MAX_BYTES:
-            raise HTTPException(
-                413,
-                "File exceeds the configured download limit."
-            )
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Video host returned HTTP {response.status_code}.",
+        )
 
-        return {
-            "host": host,
-            "filename": safe_filename(parsed.path),
-            "content_type": content_type,
-            "size_bytes": size,
-            "size_mb": (
-                round(size / (1024 * 1024), 2)
-                if size is not None else None
-            ),
-            "format": content_type.split("/")[-1].upper(),
-            "duration": None,
-            "thumbnail": None,
-            "note": (
-                "Duration and thumbnail may not be available "
-                "for direct video URLs."
-            )
-        }
+    content_type = (
+        response.headers.get("content-type", "")
+        .split(";")[0]
+        .lower()
+    )
 
+    if not (
+        content_type.startswith("video/")
+        or content_type == "application/octet-stream"
+    ):
+        raise HTTPException(
+            status_code=415,
+            detail="This URL does not appear to be a direct video file.",
+        )
+
+    raw_size = response.headers.get("content-length")
+    size = (
+        int(raw_size)
+        if raw_size and raw_size.isdigit()
+        else None
+    )
+
+    if size is not None and size > MAX_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="File exceeds the configured download limit.",
+        )
+
+    return {
+        "provider": "direct",
+        "host": host,
+        "filename": safe_filename(parsed.path),
+        "content_type": content_type,
+        "size_bytes": size,
+        "size_mb": (
+            round(size / (1024 * 1024), 2)
+            if size is not None
+            else None
+        ),
+        "format": content_type.split("/")[-1].upper(),
+        "duration": None,
+        "thumbnail": None,
+        "note": (
+            "Duration and thumbnail may not be available "
+            "for direct video URLs."
+        ),
+    }
+
+
+# -------------------------------------------------------------------
+# DOWNLOAD
+# -------------------------------------------------------------------
 
 @app.get("/download")
-async def download(url: str = Query(..., min_length=12, max_length=2048)):
-
+async def download(
+    url: str = Query(..., min_length=12, max_length=2048),
+):
     parsed, host = parse_https_url(url)
+    platform = identify_platform(host)
+
+    if platform == "Vimeo":
+        video_id = extract_vimeo_id(parsed)
+
+        if not video_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not read a Vimeo video ID from this URL.",
+            )
+
+        data = await get_vimeo_video(video_id)
+        selected = choose_vimeo_download(data)
+
+        # Vimeo returns a signed, temporary download URL through its
+        # authenticated API. We redirect the user's browser to that URL.
+        # We do not fetch arbitrary user-provided CDN URLs on the server.
+        return RedirectResponse(
+            url=selected["link"],
+            status_code=302,
+            headers={"Cache-Control": "no-store"},
+        )
 
     validate_direct_host(host)
 
     timeout = httpx.Timeout(
         25.0,
-        connect=10.0
+        connect=10.0,
     )
 
     client = httpx.AsyncClient(
         follow_redirects=False,
         timeout=timeout,
-        trust_env=False
+        trust_env=False,
     )
 
     try:
@@ -334,7 +597,7 @@ async def download(url: str = Query(..., min_length=12, max_length=2048)):
             client.build_request(
                 "GET",
                 url,
-                headers={"User-Agent": "ILU-HD/2.3"}
+                headers={"User-Agent": USER_AGENT},
             ),
             stream=True,
         )
@@ -343,8 +606,8 @@ async def download(url: str = Query(..., min_length=12, max_length=2048)):
         await client.aclose()
 
         raise HTTPException(
-            502,
-            "Could not reach the video host."
+            status_code=502,
+            detail="Could not reach the video host.",
         )
 
     if upstream.status_code in (301, 302, 303, 307, 308):
@@ -352,24 +615,25 @@ async def download(url: str = Query(..., min_length=12, max_length=2048)):
         await client.aclose()
 
         raise HTTPException(
-            400,
-            "Redirected links are not supported."
+            status_code=400,
+            detail="Redirected direct-video links are not supported.",
         )
 
     if upstream.status_code != 200:
         code = upstream.status_code
-
         await upstream.aclose()
         await client.aclose()
 
         raise HTTPException(
-            502,
-            f"Video host returned HTTP {code}."
+            status_code=502,
+            detail=f"Video host returned HTTP {code}.",
         )
 
-    content_type = upstream.headers.get(
-        "content-type", ""
-    ).split(";")[0].lower()
+    content_type = (
+        upstream.headers.get("content-type", "")
+        .split(";")[0]
+        .lower()
+    )
 
     if not (
         content_type.startswith("video/")
@@ -379,29 +643,32 @@ async def download(url: str = Query(..., min_length=12, max_length=2048)):
         await client.aclose()
 
         raise HTTPException(
-            415,
-            "This is not a direct video file."
+            status_code=415,
+            detail="This is not a direct video file.",
         )
 
-    length = upstream.headers.get("content-length")
+    content_length = upstream.headers.get("content-length")
 
-    if length and length.isdigit() and int(length) > MAX_BYTES:
+    if (
+        content_length
+        and content_length.isdigit()
+        and int(content_length) > MAX_BYTES
+    ):
         await upstream.aclose()
         await client.aclose()
 
         raise HTTPException(
-            413,
-            "File exceeds the configured download limit."
+            status_code=413,
+            detail="File exceeds the configured download limit.",
         )
 
     filename = safe_filename(parsed.path)
 
-    async def stream():
+    async def stream_video():
         total = 0
 
         try:
             async for chunk in upstream.aiter_bytes(64 * 1024):
-
                 total += len(chunk)
 
                 if total > MAX_BYTES:
@@ -423,11 +690,11 @@ async def download(url: str = Query(..., min_length=12, max_length=2048)):
         "X-Content-Type-Options": "nosniff",
     }
 
-    if length and length.isdigit():
-        headers["Content-Length"] = length
+    if content_length and content_length.isdigit():
+        headers["Content-Length"] = content_length
 
     return StreamingResponse(
-        stream(),
+        stream_video(),
         media_type=content_type,
         headers=headers,
     )
