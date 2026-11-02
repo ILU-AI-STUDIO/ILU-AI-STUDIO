@@ -7,17 +7,17 @@ import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
-from urllib.parse import urljoin
+from urllib.parse import urljoin, quote
 from urllib.parse import urlparse, unquote
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
+from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse, HTMLResponse
 from starlette.background import BackgroundTask
 
-VERSION = "4.2.0"
-USER_AGENT = "ILU-HD/4.2"
+VERSION = "4.3.0"
+USER_AGENT = "ILU-HD/4.3"
 VIMEO_API = "https://api.vimeo.com"
 
 app = FastAPI(title="ILU HD API", version=VERSION)
@@ -603,6 +603,23 @@ async def get_instagram_media(parsed) -> dict:
     if not path or not re.fullmatch(r"/[A-Za-z]+/[A-Za-z0-9_-]{5,}/", path):
         raise HTTPException(status_code=400, detail="Invalid Instagram Reel or post link. Copy the full public link from Instagram.")
     return await resolve_public_meta_video(parsed, "Instagram")
+
+
+@app.get("/instagram/embed", response_class=HTMLResponse)
+async def instagram_embed(url: str = Query(..., min_length=8, max_length=2048)):
+    """Render Instagram's official public embed; never extract media from embed markup."""
+    parsed, host = parse_https_url(url)
+    if host not in {"instagram.com", "www.instagram.com", "m.instagram.com"}:
+        raise HTTPException(status_code=400, detail="Enter a valid Instagram post or Reel URL.")
+    path = extract_instagram_path(parsed)
+    if not path or not re.fullmatch(r"/[A-Za-z]+/[A-Za-z0-9_-]{5,}/", path):
+        raise HTTPException(status_code=400, detail="Only Instagram posts, Reels and IGTV links can be embedded.")
+    # Use a canonical permalink. The official embed script renders the post;
+    # this endpoint does not inspect or extract any video file or bypass login.
+    permalink = "https://www.instagram.com" + path
+    safe_permalink = permalink.replace("&", "&amp;").replace('"', "&quot;")
+    html = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Instagram embed · ILU HD</title><style>body{{margin:0;padding:12px;background:#0b1020;color:#fff;font:14px system-ui;display:flex;justify-content:center}}.instagram-media{{background:#fff!important;max-width:540px!important;width:calc(100% - 24px)!important;margin:12px auto!important}}</style></head><body><blockquote class="instagram-media" data-instgrm-permalink="{safe_permalink}" data-instgrm-version="14" style="background:#fff;border:0;border-radius:4px;box-shadow:0 0 1px 0 rgba(0,0,0,.5),0 1px 10px 0 rgba(0,0,0,.15);margin:1px;max-width:540px;min-width:326px;padding:0;width:99%;"><a href="{safe_permalink}" target="_blank" rel="noopener">View this Instagram post or Reel</a></blockquote><script async src="https://www.instagram.com/embed.js"></script></body></html>'''
+    return HTMLResponse(content=html, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
 
 async def get_facebook_video(parsed) -> dict:
@@ -1367,6 +1384,8 @@ def health():
         "facebook_account_required": False,
         "meta_direct_cdn_supported": True,
         "public_og_video_lookup": True,
+        "instagram_official_embed_fallback": True,
+        "instagram_embed_endpoint": "/instagram/embed?url=<public-instagram-post-or-reel-url>",
         "public_video_page_detection": True,
         "youtube_direct_download_supported": False,
         "youtube_note": "YouTube does not provide a general public video-file download API; use YouTube's own permitted download features.",
@@ -1473,7 +1492,13 @@ async def inspect(
                 "download_available": False,
                 "integration_required": False,
                 "provider": None,
-                "message": str(exc.detail),
+                "message": (
+                    str(exc.detail) + (
+                        " You can still view an eligible public post using Instagram's official embed; this does not create a downloadable file."
+                        if platform == "Instagram" else ""
+                    )
+                ),
+                **({"embed_url": "/instagram/embed?url=" + quote(url, safe="") } if platform == "Instagram" else {}),
             }
 
     if platform == "YouTube":
