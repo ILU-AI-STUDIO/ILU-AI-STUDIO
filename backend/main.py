@@ -9,8 +9,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, RedirectResponse
 
-VERSION = "3.2.0"
-USER_AGENT = "ILU-HD/3.2"
+VERSION = "3.3.0"
+USER_AGENT = "ILU-HD/3.3"
 VIMEO_API = "https://api.vimeo.com"
 
 app = FastAPI(title="ILU HD API", version=VERSION)
@@ -50,12 +50,6 @@ TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID", "").strip()
 TWITCH_ACCESS_TOKEN = os.getenv("TWITCH_ACCESS_TOKEN", "").strip()
 TWITCH_EDITOR_ID = os.getenv("TWITCH_EDITOR_ID", "").strip()
 TWITCH_API = "https://api.twitch.tv/helix"
-INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "").strip()
-INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID", "").strip()
-INSTAGRAM_GRAPH_BASE = os.getenv("INSTAGRAM_GRAPH_BASE", "https://graph.instagram.com").rstrip("/")
-FACEBOOK_PAGE_ACCESS_TOKEN = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN", "").strip()
-FACEBOOK_GRAPH_VERSION = os.getenv("FACEBOOK_GRAPH_VERSION", "v26.0").strip()
-FACEBOOK_GRAPH_BASE = f"https://graph.facebook.com/{FACEBOOK_GRAPH_VERSION}"
 
 
 # -------------------------------------------------------------------
@@ -68,8 +62,8 @@ PLATFORM_DOMAINS = {
         "youtu.be",
         "youtube-nocookie.com",
     ],
-    "Instagram": ["instagram.com"],
-    "Facebook": ["facebook.com", "fb.watch"],
+    "Instagram": ["instagram.com", "cdninstagram.com"],
+    "Facebook": ["facebook.com", "fb.watch", "fbcdn.net"],
     "TikTok": ["tiktok.com"],
     "X (Twitter)": ["x.com", "twitter.com", "t.co"],
     "Vimeo": ["vimeo.com"],
@@ -158,7 +152,19 @@ def validate_public_host(host: str):
         )
 
 
+def is_meta_media_cdn(host: str) -> bool:
+    host = host.lower().rstrip(".")
+    return any(
+        host == domain or host.endswith("." + domain)
+        for domain in ("cdninstagram.com", "fbcdn.net", "fbsbx.com")
+    )
+
+
 def validate_direct_host(host: str):
+    if is_meta_media_cdn(host):
+        validate_public_host(host)
+        return
+
     if identify_platform(host) != "Direct Video / Other":
         raise HTTPException(
             status_code=415,
@@ -434,11 +440,13 @@ async def get_twitch_clip_download(parsed) -> tuple[dict, str]:
 # -------------------------------------------------------------------
 
 def instagram_is_configured() -> bool:
-    return bool(INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_USER_ID)
+    # ILU HD does not require or use a connected Instagram account.
+    return False
 
 
 def facebook_is_configured() -> bool:
-    return bool(FACEBOOK_PAGE_ACCESS_TOKEN)
+    # ILU HD does not require or use a connected Facebook Page.
+    return False
 
 
 def extract_instagram_path(parsed) -> str | None:
@@ -463,82 +471,28 @@ def extract_facebook_video_id(parsed) -> str | None:
     return candidate if candidate and str(candidate).isdigit() else None
 
 
-def validate_meta_media_url(media_url: str, provider: str) -> str:
-    parsed = urlparse(media_url)
-    host = (parsed.hostname or "").lower().rstrip(".")
-    if parsed.scheme != "https" or not host:
-        raise HTTPException(status_code=502, detail=f"{provider} returned an invalid media URL.")
-    if provider == "Instagram":
-        allowed = ("cdninstagram.com", "instagram.com", "fbcdn.net")
-    else:
-        allowed = ("fbcdn.net", "fbsbx.com", "facebook.com")
-    if not any(host == domain or host.endswith("." + domain) for domain in allowed):
-        raise HTTPException(status_code=502, detail=f"{provider} returned an unexpected media host.")
-    return media_url
-
-
 async def get_instagram_media(parsed) -> dict:
-    if not instagram_is_configured():
-        raise HTTPException(status_code=503, detail="Instagram API is not configured. Add INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_USER_ID in Render. Use an Instagram Professional (Business or Creator) account authorized for this app.")
-    wanted_path = extract_instagram_path(parsed)
-    if not wanted_path:
-        raise HTTPException(status_code=400, detail="Use a standard Instagram post or Reel URL (instagram.com/p/... or /reel/...).")
-    headers = {"Authorization": f"Bearer {INSTAGRAM_ACCESS_TOKEN}", "User-Agent": USER_AGENT}
-    params = {"fields": "id,media_type,media_url,permalink,caption,timestamp,thumbnail_url", "limit": "100"}
-    url = f"{INSTAGRAM_GRAPH_BASE}/{INSTAGRAM_USER_ID}/media"
-    timeout = httpx.Timeout(20.0, connect=10.0)
-    async with httpx.AsyncClient(timeout=timeout, trust_env=False, follow_redirects=False) as client:
-        try:
-            response = await client.get(url, headers=headers, params=params)
-        except httpx.HTTPError:
-            raise HTTPException(status_code=502, detail="Could not contact the Instagram Graph API.")
-    if response.status_code in (401, 403):
-        raise HTTPException(status_code=403, detail="Instagram rejected the token or permissions. Check the professional account, token and instagram_business_basic / media-read access.")
-    if response.status_code >= 400:
-        raise HTTPException(status_code=502, detail=f"Instagram API returned HTTP {response.status_code}.")
-    try:
-        rows = response.json().get("data", [])
-    except ValueError:
-        raise HTTPException(status_code=502, detail="Instagram returned an unreadable response.")
-    for item in rows:
-        permalink = urlparse(item.get("permalink", ""))
-        if permalink.path.rstrip("/") == wanted_path.rstrip("/"):
-            if item.get("media_type") not in {"VIDEO", "REELS"}:
-                raise HTTPException(status_code=415, detail="This Instagram post is not a video available through the authorized API.")
-            if not item.get("media_url"):
-                raise HTTPException(status_code=403, detail="Instagram did not provide a media file URL. The media may contain licensed music or otherwise be unavailable through the API.")
-            item["media_url"] = validate_meta_media_url(item["media_url"], "Instagram")
-            return item
-    raise HTTPException(status_code=404, detail="This Instagram video was not found in the connected account's media. Only media belonging to the authorized Instagram Professional account is supported.")
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            "Instagram link detected, but Instagram does not provide ILU HD "
+            "an unauthenticated official file-download link for arbitrary public "
+            "posts or Reels. No account connection is requested. If you have a "
+            "direct cdninstagram.com video-file URL, paste that URL instead."
+        ),
+    )
 
 
 async def get_facebook_video(parsed) -> dict:
-    if not facebook_is_configured():
-        raise HTTPException(status_code=503, detail="Facebook Page integration is not configured. Add FACEBOOK_PAGE_ACCESS_TOKEN in Render. The token must belong to a Page you manage.")
-    video_id = extract_facebook_video_id(parsed)
-    if not video_id:
-        raise HTTPException(status_code=400, detail="Could not read a numeric Facebook video ID. Standard Page video links are supported; fb.watch short links and arbitrary Reels are not resolved.")
-    headers = {"Authorization": f"Bearer {FACEBOOK_PAGE_ACCESS_TOKEN}", "User-Agent": USER_AGENT}
-    timeout = httpx.Timeout(20.0, connect=10.0)
-    async with httpx.AsyncClient(timeout=timeout, trust_env=False, follow_redirects=False) as client:
-        try:
-            response = await client.get(f"{FACEBOOK_GRAPH_BASE}/{video_id}", headers=headers, params={"fields": "id,title,description,length,source,picture"})
-        except httpx.HTTPError:
-            raise HTTPException(status_code=502, detail="Could not contact the Facebook Graph API.")
-    if response.status_code in (401, 403):
-        raise HTTPException(status_code=403, detail="Facebook denied access. The Page access token must have permission to read this Page-owned video, and the token owner must have a Page role.")
-    if response.status_code == 404:
-        raise HTTPException(status_code=404, detail="Facebook video was not found or is not accessible to the connected Page account.")
-    if response.status_code >= 400:
-        raise HTTPException(status_code=502, detail=f"Facebook Graph API returned HTTP {response.status_code}.")
-    try:
-        data = response.json()
-    except ValueError:
-        raise HTTPException(status_code=502, detail="Facebook returned an unreadable response.")
-    if not data.get("source"):
-        raise HTTPException(status_code=403, detail="Facebook did not return a source file. This usually means the video is not owned by the connected Page or the account lacks the required Page role.")
-    data["source"] = validate_meta_media_url(data["source"], "Facebook")
-    return data
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            "Facebook link detected, but ILU HD does not use a connected Page "
+            "account and cannot obtain an official file URL for arbitrary public "
+            "videos. No account connection is requested. If you have a direct "
+            "fbcdn.net video-file URL, paste that URL instead."
+        ),
+    )
 
 
 # -------------------------------------------------------------------
@@ -553,8 +507,9 @@ def health():
         "version": VERSION,
         "vimeo_configured": bool(VIMEO_ACCESS_TOKEN),
         "twitch_configured": twitch_is_configured(),
-        "instagram_configured": instagram_is_configured(),
-        "facebook_configured": facebook_is_configured(),
+        "instagram_account_required": False,
+        "facebook_account_required": False,
+        "meta_direct_cdn_supported": True,
         "tiktok_download_supported": False,
     }
 
@@ -609,13 +564,49 @@ def inspect(
             ),
         }
 
+    if is_meta_media_cdn(host):
+        return {
+            "platform": platform,
+            "host": host,
+            "download_available": True,
+            "integration_required": False,
+            "provider": "direct",
+            "message": (
+                "Direct media CDN link detected. ILU HD will verify that the URL "
+                "returns a video file. This works without connecting an account; "
+                "temporary or expired links may not work."
+            ),
+        }
+
     if platform == "Instagram":
-        configured = instagram_is_configured() and bool(extract_instagram_path(parsed))
-        return {"platform": platform, "host": host, "download_available": configured, "integration_required": not configured, "provider": "instagram" if configured else None, "message": ("Instagram API credentials are configured. ILU HD will verify that the video belongs to the connected Professional account and that Meta supplies a media file." if configured else "Instagram detected. Authorized downloads are limited to videos from a connected Instagram Professional (Business or Creator) account. Configure INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_USER_ID in Render.")}
+        return {
+            "platform": platform,
+            "host": host,
+            "download_available": False,
+            "integration_required": False,
+            "provider": None,
+            "message": (
+                "Instagram detected. No account connection is required. "
+                "Instagram does not expose a general official download link "
+                "for arbitrary public posts or Reels. Paste a direct "
+                "cdninstagram.com video-file URL if you have one."
+            ),
+        }
 
     if platform == "Facebook":
-        configured = facebook_is_configured() and bool(extract_facebook_video_id(parsed))
-        return {"platform": platform, "host": host, "download_available": configured, "integration_required": not configured, "provider": "facebook" if configured else None, "message": ("Facebook Page API credentials are configured. ILU HD will verify Page ownership and that Meta returns a source file." if configured else "Facebook detected. Authorized downloads are limited to Page-owned videos accessible to a connected Page access token. Configure FACEBOOK_PAGE_ACCESS_TOKEN in Render; numeric video links are supported.")}
+        return {
+            "platform": platform,
+            "host": host,
+            "download_available": False,
+            "integration_required": False,
+            "provider": None,
+            "message": (
+                "Facebook detected. No account connection is required. "
+                "ILU HD cannot obtain an official file URL for arbitrary "
+                "public Facebook videos. Paste a direct fbcdn.net video-file "
+                "URL if you have one."
+            ),
+        }
 
     if platform == "TikTok":
         return {"platform": platform, "host": host, "download_available": False, "integration_required": True, "provider": None, "message": "TikTok detected. TikTok's official Display API provides creator-authorized video metadata and embeds, but does not provide a general video-file download endpoint. ILU HD will not extract or bypass platform media URLs."}
@@ -730,12 +721,12 @@ async def info(
             "note": "Twitch supplied an authorized temporary clip download URL. Availability depends on the configured broadcaster/editor account.",
         }
 
-    if platform == "Instagram":
+    if platform == "Instagram" and not is_meta_media_cdn(host):
         item = await get_instagram_media(parsed)
         title = (item.get("caption") or "instagram-video").splitlines()[0][:80]
         return {"provider": "instagram", "host": host, "filename": safe_filename(title + ".mp4"), "content_type": "video/mp4", "size_bytes": None, "size_mb": None, "format": "MP4", "duration": None, "thumbnail": item.get("thumbnail_url"), "quality": "Meta authorized media", "note": "Meta supplied this media URL for a video belonging to the connected Instagram Professional account. The URL is temporary and requested again at download time."}
 
-    if platform == "Facebook":
+    if platform == "Facebook" and not is_meta_media_cdn(host):
         item = await get_facebook_video(parsed)
         title = item.get("title") or "facebook-video"
         length = item.get("length")
@@ -866,11 +857,11 @@ async def download(
             headers={"Cache-Control": "no-store"},
         )
 
-    if platform == "Instagram":
+    if platform == "Instagram" and not is_meta_media_cdn(host):
         item = await get_instagram_media(parsed)
         return RedirectResponse(url=item["media_url"], status_code=302, headers={"Cache-Control": "no-store"})
 
-    if platform == "Facebook":
+    if platform == "Facebook" and not is_meta_media_cdn(host):
         item = await get_facebook_video(parsed)
         return RedirectResponse(url=item["source"], status_code=302, headers={"Cache-Control": "no-store"})
 
