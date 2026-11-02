@@ -143,9 +143,12 @@ function downloadStreamInBrowser(){
 function handoffDownload(providerLabel){const url=API_BASE+"/download?url="+encodeURIComponent(currentUrl);progressBox.classList.add("show");$("progressTitle").textContent="Opening official "+providerLabel+" download...";$("percent").textContent="—";progressFill.style.width="100%";$("downloadState").textContent="Handing off to "+providerLabel;setStatus("Requesting the authorized file. Your browser will handle the download.","info");window.location.assign(url)}
 downloadBtn.addEventListener("click",async()=>{
  if(!currentUrl||downloading)return;
- if("Notification"in window&&Notification.permission==="default"){try{await Notification.requestPermission()}catch(e){}}
- if(currentProvider==="vimeo"){handoffDownload("Vimeo");return}if(currentProvider==="twitch"){handoffDownload("Twitch");return}
+ /* Start native DASH/HLS navigation immediately inside the user's tap.
+    Asking iOS Safari for notification permission first can consume the
+    user-activation gesture and Safari may then block the download. */
  if(currentProvider==="dash"||currentProvider==="hls"){downloadStreamInBrowser();return}
+ if(currentProvider==="vimeo"){handoffDownload("Vimeo");return}
+ if(currentProvider==="twitch"){handoffDownload("Twitch");return}
  await downloadDirectVideo();
 });
 cancelBtn.addEventListener("click",()=>{if(controller){cancelBtn.disabled=true;controller.abort()}});cancelBtn.disabled=true;
