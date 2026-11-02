@@ -254,7 +254,7 @@ Platform detection does not mean downloading is available. ILU HD does not ask v
 </p>
 </section>
 
-<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.7.0</footer>
+<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v4.0.0</footer>
 </main>
 
 <script>
@@ -279,7 +279,7 @@ const percent=document.getElementById("percent");
 
 let currentUrl="";
 let currentProvider="direct";
-let currentHlsHasVariants=false;
+let currentHlsHasVariants=false; // true for selectable HLS or DASH representations
 let controller=null;
 let downloading=false;
 
@@ -395,7 +395,7 @@ function resetProgress(){
 
 qualitySelect.addEventListener("change",()=>{
  const selected=qualitySelect.options[qualitySelect.selectedIndex];
- if(selected)document.getElementById("format").textContent="HLS · "+selected.textContent;
+ if(selected)document.getElementById("format").textContent=(currentProvider==="dash"?"DASH · ":"HLS · ")+selected.textContent;
 });
 
 /* ---------------------------------------------------------------
@@ -477,7 +477,7 @@ form.addEventListener("submit",async event=>{
     :"Not provided";
 
   document.getElementById("note").textContent=info.note||"";
-  if(info.provider==="hls"&&Array.isArray(info.variants)&&info.variants.length>1){
+  if((info.provider==="hls"||info.provider==="dash")&&Array.isArray(info.variants)&&info.variants.length>1){
    currentHlsHasVariants=true;
    qualitySelect.innerHTML="";
    info.variants.forEach((variant,index)=>{
@@ -489,7 +489,7 @@ form.addEventListener("submit",async event=>{
    });
    qualitySelect.value="0";
    qualityWrap.hidden=false;
-   document.getElementById("format").textContent="HLS · "+info.variants[0].label;
+   document.getElementById("format").textContent=(info.provider==="dash"?"DASH · ":"HLS · ")+info.variants[0].label;
   }else{
    qualityWrap.hidden=true;
    currentHlsHasVariants=false;
@@ -514,6 +514,9 @@ form.addEventListener("submit",async event=>{
   }else if(currentProvider==="facebook"){
    document.getElementById("previewNote").textContent=
     "Public Facebook media URL found in page metadata. No account connection is used.";
+  }else if(currentProvider==="dash"){
+   document.getElementById("previewNote").textContent=
+    "DASH stream details loaded. A supported unencrypted MP4 representation will be assembled when you download.";
   }
 
   status(
@@ -525,7 +528,9 @@ form.addEventListener("submit",async event=>{
       ?"Public Instagram video file found. Ready to download."
       :currentProvider==="facebook"
        ?"Public Facebook video file found. Ready to download."
-       :"Supported direct video link. Video information loaded.",
+       :currentProvider==="dash"
+        ?"Supported unencrypted DASH video link. Choose a quality and download."
+        :"Supported direct video link. Video information loaded.",
    "ok"
   );
 
