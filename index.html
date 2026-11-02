@@ -219,7 +219,7 @@ footer{text-align:center;color:#64748b;font-size:11px;margin:22px 0 5px;letter-s
  <div id="qualityWrap" class="quality-wrap" hidden>
   <label for="qualitySelect">VIDEO QUALITY</label>
   <select id="qualitySelect" aria-label="Choose video quality"></select>
-  <p class="quality-hint">Choose one of the qualities available in this HLS playlist.</p>
+  <p class="quality-hint">Choose one of the qualities available in this video playlist.</p>
  </div>
  <div class="download-wrap"><button id="download" type="button">⬇ Download Video</button></div>
  <p class="hint" id="note"></p>
@@ -254,7 +254,7 @@ Platform detection does not mean downloading is available. ILU HD does not ask v
 </p>
 </section>
 
-<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v4.0.0</footer>
+<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v4.1.0</footer>
 </main>
 
 <script>
@@ -516,7 +516,7 @@ form.addEventListener("submit",async event=>{
     "Public Facebook media URL found in page metadata. No account connection is used.";
   }else if(currentProvider==="dash"){
    document.getElementById("previewNote").textContent=
-    "DASH stream details loaded. A supported unencrypted MP4 representation will be assembled when you download.";
+    "DASH stream details loaded. A supported unencrypted MP4 representation will be assembled when you download. SegmentList and SegmentTemplate/Timeline VOD are supported.";
   }
 
   status(
