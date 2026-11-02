@@ -157,6 +157,13 @@ footer{text-align:center;color:#64748b;font-size:11px;margin:22px 0 5px;letter-s
 @media(prefers-reduced-motion:reduce){
  *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
 }
+
+.quality-wrap{margin:18px 0 4px;padding:15px;border:1px solid #35445f;border-radius:14px;background:#080e1b}
+.quality-wrap[hidden]{display:none}
+.quality-wrap label{margin:0 0 8px}
+.quality-wrap select{width:100%;min-height:48px;padding:10px 13px;border-radius:11px;border:1px solid #405574;background:#101827;color:#fff;font:inherit;font-weight:750}
+.quality-hint{margin:7px 0 0;color:#91a1ba;font-size:11px}
+
 </style>
 </head>
 <body>
@@ -209,6 +216,11 @@ footer{text-align:center;color:#64748b;font-size:11px;margin:22px 0 5px;letter-s
   <div class="item"><small>File size</small><strong id="size">Not provided</strong></div>
   <div class="item"><small>Duration</small><strong id="duration">Not provided</strong></div>
  </div>
+ <div id="qualityWrap" class="quality-wrap" hidden>
+  <label for="qualitySelect">VIDEO QUALITY</label>
+  <select id="qualitySelect" aria-label="Choose video quality"></select>
+  <p class="quality-hint">Choose one of the qualities available in this HLS playlist.</p>
+ </div>
  <div class="download-wrap"><button id="download" type="button">⬇ Download Video</button></div>
  <p class="hint" id="note"></p>
 </section>
@@ -242,7 +254,7 @@ Platform detection does not mean downloading is available. ILU HD does not ask v
 </p>
 </section>
 
-<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.6.0</footer>
+<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.7.0</footer>
 </main>
 
 <script>
@@ -259,12 +271,15 @@ const platformCard=document.getElementById("platformCard");
 const preview=document.getElementById("preview");
 const videoPreview=document.getElementById("videoPreview");
 const progressBox=document.getElementById("progressBox");
+const qualityWrap=document.getElementById("qualityWrap");
+const qualitySelect=document.getElementById("qualitySelect");
 
 const progressFill=document.getElementById("progressFill");
 const percent=document.getElementById("percent");
 
 let currentUrl="";
 let currentProvider="direct";
+let currentHlsHasVariants=false;
 let controller=null;
 let downloading=false;
 
@@ -378,6 +393,11 @@ function resetProgress(){
  document.getElementById("progressTitle").textContent="Downloading video...";
 }
 
+qualitySelect.addEventListener("change",()=>{
+ const selected=qualitySelect.options[qualitySelect.selectedIndex];
+ if(selected)document.getElementById("format").textContent="HLS · "+selected.textContent;
+});
+
 /* ---------------------------------------------------------------
    CHECK LINK AND INSPECT PROVIDER
 ---------------------------------------------------------------- */
@@ -392,6 +412,9 @@ form.addEventListener("submit",async event=>{
  clearPreview();
  currentUrl="";
  currentProvider="direct";
+ currentHlsHasVariants=false;
+ qualityWrap.hidden=true;
+ qualitySelect.innerHTML="";
 
  let target;
 
@@ -454,6 +477,23 @@ form.addEventListener("submit",async event=>{
     :"Not provided";
 
   document.getElementById("note").textContent=info.note||"";
+  if(info.provider==="hls"&&Array.isArray(info.variants)&&info.variants.length>1){
+   currentHlsHasVariants=true;
+   qualitySelect.innerHTML="";
+   info.variants.forEach((variant,index)=>{
+    const option=document.createElement("option");
+    option.value=String(variant.index??index);
+    const extra=variant.bandwidth?" · "+Math.round(variant.bandwidth/1000)+" kbps":"";
+    option.textContent=(variant.label||("Quality "+(index+1)))+extra;
+    qualitySelect.appendChild(option);
+   });
+   qualitySelect.value="0";
+   qualityWrap.hidden=false;
+   document.getElementById("format").textContent="HLS · "+info.variants[0].label;
+  }else{
+   qualityWrap.hidden=true;
+   currentHlsHasVariants=false;
+  }
   details.classList.add("show");
 
   if(currentProvider==="direct"){
@@ -515,8 +555,10 @@ async function downloadDirectVideo(){
  let reader=null;
 
  try{
+  const downloadQuery="url="+encodeURIComponent(currentUrl)+
+   (currentHlsHasVariants?"&quality_index="+encodeURIComponent(qualitySelect.value):"");
   const response=await fetch(
-   API_BASE+"/download?url="+encodeURIComponent(currentUrl),
+   API_BASE+"/download?"+downloadQuery,
    {method:"GET",signal:controller.signal}
   );
 
