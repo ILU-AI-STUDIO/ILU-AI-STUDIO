@@ -11,8 +11,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, RedirectResponse
 
-VERSION = "3.4.0"
-USER_AGENT = "ILU-HD/3.4"
+VERSION = "3.5.0"
+USER_AGENT = "ILU-HD/3.5"
 VIMEO_API = "https://api.vimeo.com"
 
 app = FastAPI(title="ILU HD API", version=VERSION)
@@ -180,6 +180,37 @@ def validate_direct_host(host: str):
         )
 
     validate_public_host(host)
+
+
+async def probe_video_url(client: httpx.AsyncClient, url: str):
+    """Probe a direct media URL; fall back to a one-byte ranged GET when HEAD is unsupported."""
+    try:
+        response = await client.head(
+            url,
+            headers={"User-Agent": USER_AGENT},
+        )
+        if response.status_code not in (403, 405, 501):
+            return response
+        await response.aclose()
+        return await client.get(
+            url,
+            headers={"User-Agent": USER_AGENT, "Range": "bytes=0-0"},
+        )
+    except httpx.HTTPError:
+        raise HTTPException(
+            status_code=502,
+            detail="Could not contact the video host.",
+        )
+
+
+def video_content_type(response: httpx.Response) -> str:
+    return response.headers.get("content-type", "").split(";")[0].lower()
+
+
+def is_supported_video_response(response: httpx.Response) -> bool:
+    content_type = video_content_type(response)
+    # HLS/DASH manifests are playlists, not standalone video files.
+    return content_type.startswith("video/") or content_type == "application/octet-stream"
 
 
 def safe_filename(path: str, fallback: str = "ilu-hd-video") -> str:
@@ -515,7 +546,7 @@ async def resolve_public_meta_video(parsed, platform: str) -> dict:
     validate_public_host(host)
     timeout = httpx.Timeout(12.0, connect=8.0)
     headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; ILU-HD/3.4; +https://ilu-ai-studio.github.io/ILU-AI-STUDIO/)",
+        "User-Agent": "Mozilla/5.0 (compatible; ILU-HD/3.5; +https://ilu-ai-studio.github.io/ILU-AI-STUDIO/)",
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "en-US,en;q=0.8",
     }
@@ -585,6 +616,9 @@ def health():
         "facebook_account_required": False,
         "meta_direct_cdn_supported": True,
         "public_og_video_lookup": True,
+        "direct_video_mime_types": ["video/mp4", "video/webm", "video/quicktime", "video/x-matroska", "application/octet-stream"],
+        "head_fallback_enabled": True,
+        "hls_dash_playlist_download": False,
         "tiktok_download_supported": False,
     }
 
@@ -819,16 +853,10 @@ async def info(
         trust_env=False,
     ) as client:
         try:
-            response = await client.head(
-                url,
-                headers={"User-Agent": USER_AGENT},
-            )
+            response = await probe_video_url(client, url)
 
-        except httpx.HTTPError:
-            raise HTTPException(
-                status_code=502,
-                detail="Could not contact the video host.",
-            )
+        except HTTPException:
+            raise
 
     if response.status_code in (301, 302, 303, 307, 308):
         raise HTTPException(
@@ -842,22 +870,26 @@ async def info(
             detail=f"Video host returned HTTP {response.status_code}.",
         )
 
-    content_type = (
-        response.headers.get("content-type", "")
-        .split(";")[0]
-        .lower()
-    )
+    content_type = video_content_type(response)
 
-    if not (
-        content_type.startswith("video/")
-        or content_type == "application/octet-stream"
-    ):
+    if not is_supported_video_response(response):
+        await response.aclose()
         raise HTTPException(
             status_code=415,
-            detail="This URL does not appear to be a direct video file.",
+            detail=(
+                "This URL is not a direct video file. MP4, WebM and other "
+                "video/* files are supported; M3U8/DASH playlists are not "
+                "single downloadable files."
+            ),
         )
 
     raw_size = response.headers.get("content-length")
+    if response.status_code == 206:
+        content_range = response.headers.get("content-range", "")
+        range_match = re.search(r"/([0-9]+)$", content_range)
+        if range_match:
+            raw_size = range_match.group(1)
+    await response.aclose()
     size = (
         int(raw_size)
         if raw_size and raw_size.isdigit()
@@ -1056,3 +1088,4 @@ async def download(
         media_type=content_type,
         headers=headers,
     )
+
