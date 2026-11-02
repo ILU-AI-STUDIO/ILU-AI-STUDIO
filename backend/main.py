@@ -16,8 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
 from starlette.background import BackgroundTask
 
-VERSION = "4.1.0"
-USER_AGENT = "ILU-HD/4.1"
+VERSION = "4.2.0"
+USER_AGENT = "ILU-HD/4.2"
 VIMEO_API = "https://api.vimeo.com"
 
 app = FastAPI(title="ILU HD API", version=VERSION)
@@ -518,15 +518,19 @@ class PublicVideoMetaParser(HTMLParser):
         self.title = ""
 
     def handle_starttag(self, tag, attrs):
-        if tag.lower() != "meta":
-            return
+        tag = tag.lower()
         values = {str(k).lower(): (v or "") for k, v in attrs}
-        prop = (values.get("property") or values.get("name") or "").lower()
-        content = values.get("content", "").strip()
-        if content and prop in {"og:video", "og:video:url", "og:video:secure_url"}:
-            self.video_urls.append(content)
-        elif content and prop in {"og:title", "twitter:title"} and not self.title:
-            self.title = content
+        if tag == "meta":
+            prop = (values.get("property") or values.get("name") or "").lower()
+            content = values.get("content", "").strip()
+            if content and prop in {"og:video", "og:video:url", "og:video:secure_url", "twitter:player:stream"}:
+                self.video_urls.append(content)
+            elif content and prop in {"og:title", "twitter:title"} and not self.title:
+                self.title = content
+        elif tag in {"video", "source"}:
+            src = (values.get("src") or values.get("data-src") or "").strip()
+            if src:
+                self.video_urls.append(src)
 
 
 async def resolve_public_meta_video(parsed, platform: str) -> dict:
@@ -603,6 +607,59 @@ async def get_instagram_media(parsed) -> dict:
 
 async def get_facebook_video(parsed) -> dict:
     return await resolve_public_meta_video(parsed, "Facebook")
+
+
+async def resolve_public_website_video(parsed) -> dict:
+    """Detect explicitly exposed video URLs in a public HTML page.
+
+    No scripts are executed, no cookies/accounts are used, and no DRM,
+    authentication, or player API is reverse-engineered. The media URL must
+    be on the page host, a configured ALLOWED_HOSTS host, or Meta's public CDN.
+    """
+    page_host = (parsed.hostname or "").lower().rstrip(".")
+    if identify_platform(page_host) != "Direct Video / Other":
+        raise HTTPException(status_code=415, detail="This platform needs its own authorized integration.")
+    validate_public_host(page_host)
+    timeout = httpx.Timeout(12.0, connect=8.0)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; ILU-HD/4.2)",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.8",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False, follow_redirects=False, headers=headers) as client:
+            async with client.stream("GET", parsed.geturl()) as response:
+                if response.status_code in (301, 302, 303, 307, 308):
+                    raise HTTPException(status_code=403, detail="Redirected video pages are not supported. Open the final page and copy its URL.")
+                if response.status_code != 200:
+                    raise HTTPException(status_code=502, detail=f"Video website returned HTTP {response.status_code}.")
+                ctype = response.headers.get("content-type", "").lower()
+                if "text/html" not in ctype and "application/xhtml" not in ctype:
+                    raise HTTPException(status_code=415, detail="This link is not a public HTML video page or direct video file.")
+                chunks, total = [], 0
+                async for chunk in response.aiter_bytes():
+                    total += len(chunk)
+                    if total > 2 * 1024 * 1024:
+                        break
+                    chunks.append(chunk)
+                body = b"".join(chunks).decode(response.encoding or "utf-8", errors="replace")
+    except HTTPException:
+        raise
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="Could not read the public video page.")
+
+    parser = PublicVideoMetaParser()
+    parser.feed(body)
+    for candidate in parser.video_urls:
+        media_url = urljoin(parsed.geturl(), candidate)
+        media_parsed, media_host = parse_https_url(media_url)
+        if media_host != page_host and media_host not in ALLOWED_HOSTS and not is_meta_media_cdn(media_host):
+            continue
+        if media_host not in ALLOWED_HOSTS and media_host != page_host and not is_meta_media_cdn(media_host):
+            continue
+        validate_public_host(media_host)
+        return {"media_url": media_parsed.geturl(), "title": parser.title or "public-video"}
+    raise HTTPException(status_code=404, detail="No publicly exposed direct video URL was found in this page. The video may be loaded by JavaScript, require access, or use an unsupported player.")
 
 
 # -------------------------------------------------------------------
@@ -1310,6 +1367,9 @@ def health():
         "facebook_account_required": False,
         "meta_direct_cdn_supported": True,
         "public_og_video_lookup": True,
+        "public_video_page_detection": True,
+        "youtube_direct_download_supported": False,
+        "youtube_note": "YouTube does not provide a general public video-file download API; use YouTube's own permitted download features.",
         "direct_video_mime_types": ["video/mp4", "video/webm", "video/quicktime", "video/x-matroska", "application/octet-stream"],
         "head_fallback_enabled": True,
         "hls_dash_playlist_download": True,
@@ -1415,6 +1475,23 @@ async def inspect(
                 "provider": None,
                 "message": str(exc.detail),
             }
+
+    if platform == "YouTube":
+        return {"platform": platform, "host": host, "download_available": False, "integration_required": False, "provider": None, "message": "YouTube detected. No general public download endpoint is provided; use YouTube's own download feature where available or download content you own through authorized tools."}
+
+    if platform == "Direct Video / Other":
+        try:
+            item = await resolve_public_website_video(parsed)
+            return {
+                "platform": "Public Video Website",
+                "host": host,
+                "download_available": True,
+                "integration_required": False,
+                "provider": "public_page",
+                "message": "A public HTML video page exposed a direct media URL. The media hostname is validated and must be trusted/configured.",
+            }
+        except HTTPException as exc:
+            return {"platform": "Public Video Website", "host": host, "download_available": False, "integration_required": False, "provider": None, "message": str(exc.detail)}
 
     if platform == "TikTok":
         return {"platform": platform, "host": host, "download_available": False, "integration_required": True, "provider": None, "message": "TikTok detected. TikTok's official Display API provides creator-authorized video metadata and embeds, but does not provide a general video-file download endpoint. ILU HD will not extract or bypass platform media URLs."}
@@ -1600,6 +1677,33 @@ async def info(
             "note": "A public page exposed a direct media URL. No account, cookies or login were used; availability may change before download.",
         }
 
+    if platform == "Direct Video / Other":
+        item = await resolve_public_website_video(parsed)
+        media_parsed, media_host = parse_https_url(item["media_url"])
+        validate_direct_host(media_host)
+        async with httpx.AsyncClient(follow_redirects=False, timeout=httpx.Timeout(15.0, connect=8.0), trust_env=False) as client:
+            response = await probe_video_url(client, media_parsed.geturl())
+        if response.status_code >= 400:
+            await response.aclose()
+            raise HTTPException(status_code=502, detail=f"Video host returned HTTP {response.status_code}.")
+        mime = video_content_type(response)
+        if not is_supported_video_response(response):
+            await response.aclose()
+            raise HTTPException(status_code=415, detail="The exposed page URL is not a supported direct video file.")
+        raw_size = response.headers.get("content-length")
+        await response.aclose()
+        size = int(raw_size) if raw_size and raw_size.isdigit() else None
+        return {
+            "provider": "public_page", "host": media_host,
+            "filename": safe_filename(urlparse(media_parsed.geturl()).path, "ilu-hd-video.mp4"),
+            "content_type": mime, "size_bytes": size,
+            "size_mb": round(size / (1024 * 1024), 2) if size else None,
+            "format": mime.split("/")[-1].upper(), "duration": None,
+            "thumbnail": None, "quality": "Public page direct video",
+            "note": "The public page exposed a direct media URL. This works only when the media host permits access and is configured in ALLOWED_HOSTS if it differs from the page host.",
+            "resolved_url": media_parsed.geturl(),
+        }
+
     validate_direct_host(host)
 
     timeout = httpx.Timeout(
@@ -1737,6 +1841,11 @@ async def download(
         url = item["media_url"]
         parsed, host = parse_https_url(url)
         platform = identify_platform(host)
+
+    if platform == "Direct Video / Other":
+        item = await resolve_public_website_video(parsed)
+        url = item["media_url"]
+        parsed, host = parse_https_url(url)
 
     validate_direct_host(host)
 
