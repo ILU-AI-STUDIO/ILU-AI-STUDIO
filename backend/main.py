@@ -9,8 +9,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, RedirectResponse
 
-VERSION = "3.0.0"
-USER_AGENT = "ILU-HD/3.0"
+VERSION = "3.1.0"
+USER_AGENT = "ILU-HD/3.1"
 VIMEO_API = "https://api.vimeo.com"
 
 app = FastAPI(title="ILU HD API", version=VERSION)
@@ -46,6 +46,10 @@ ALLOWED_HOSTS = {
 
 MAX_BYTES = int(os.getenv("MAX_DOWNLOAD_MB", "300")) * 1024 * 1024
 VIMEO_ACCESS_TOKEN = os.getenv("VIMEO_ACCESS_TOKEN", "").strip()
+TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID", "").strip()
+TWITCH_ACCESS_TOKEN = os.getenv("TWITCH_ACCESS_TOKEN", "").strip()
+TWITCH_EDITOR_ID = os.getenv("TWITCH_EDITOR_ID", "").strip()
+TWITCH_API = "https://api.twitch.tv/helix"
 
 
 # -------------------------------------------------------------------
@@ -325,6 +329,101 @@ def choose_vimeo_download(data: dict) -> dict:
 
 
 # -------------------------------------------------------------------
+# TWITCH OFFICIAL CLIP DOWNLOAD INTEGRATION
+# -------------------------------------------------------------------
+
+def extract_twitch_clip_slug(parsed) -> str | None:
+    """Read a Twitch clip slug from clips.twitch.tv or twitch.tv/.../clip/... URLs."""
+    parts = [part for part in parsed.path.split("/") if part]
+    if parsed.hostname and parsed.hostname.lower() == "clips.twitch.tv":
+        return parts[0] if parts else None
+    for index, part in enumerate(parts[:-1]):
+        if part.lower() == "clip":
+            return parts[index + 1]
+    return None
+
+
+def twitch_is_configured() -> bool:
+    return bool(TWITCH_CLIENT_ID and TWITCH_ACCESS_TOKEN and TWITCH_EDITOR_ID)
+
+
+async def get_twitch_clip_download(parsed) -> tuple[dict, str]:
+    """Ask Twitch for clip metadata and an authorized, temporary download URL."""
+    if not twitch_is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Twitch integration is not configured. Add the Twitch Client ID, "
+                "authorized user access token and editor user ID in Render. "
+                "The token must have editor:manage:clips or channel:manage:clips."
+            ),
+        )
+
+    slug = extract_twitch_clip_slug(parsed)
+    if not slug or not re.fullmatch(r"[A-Za-z0-9_-]{3,100}", slug):
+        raise HTTPException(status_code=400, detail="Could not read a Twitch clip ID from this URL.")
+
+    headers = {
+        "Client-Id": TWITCH_CLIENT_ID,
+        "Authorization": f"Bearer {TWITCH_ACCESS_TOKEN}",
+        "User-Agent": USER_AGENT,
+    }
+    timeout = httpx.Timeout(20.0, connect=10.0)
+
+    async with httpx.AsyncClient(timeout=timeout, trust_env=False, follow_redirects=False) as client:
+        try:
+            clip_response = await client.get(
+                f"{TWITCH_API}/clips", headers=headers, params={"id": slug}
+            )
+            if clip_response.status_code == 401:
+                raise HTTPException(status_code=502, detail="Twitch rejected the token or Client ID. Check the Render settings.")
+            if clip_response.status_code >= 400:
+                raise HTTPException(status_code=502, detail=f"Twitch API returned HTTP {clip_response.status_code}.")
+            clip_rows = clip_response.json().get("data", [])
+            if not clip_rows:
+                raise HTTPException(status_code=404, detail="Twitch clip was not found or is unavailable.")
+            clip = clip_rows[0]
+
+            # Twitch requires the authenticated broadcaster/editor relationship.
+            params = {
+                "broadcaster_id": clip.get("broadcaster_id", ""),
+                "editor_id": TWITCH_EDITOR_ID,
+                "clip_id": slug,
+            }
+            download_response = await client.get(
+                f"{TWITCH_API}/clips/downloads", headers=headers, params=params
+            )
+            if download_response.status_code == 401:
+                raise HTTPException(status_code=403, detail="Twitch authorization is missing the required clip-download scope, or the token user ID does not match TWITCH_EDITOR_ID.")
+            if download_response.status_code == 403:
+                raise HTTPException(status_code=403, detail="This Twitch account is not an authorized editor/broadcaster for this channel.")
+            if download_response.status_code >= 400:
+                raise HTTPException(status_code=502, detail=f"Twitch download API returned HTTP {download_response.status_code}.")
+            rows = download_response.json().get("data", [])
+            if not rows:
+                raise HTTPException(status_code=404, detail="Twitch did not provide a downloadable clip file.")
+            file_url = rows[0].get("landscape_download_url") or rows[0].get("portrait_download_url")
+        except HTTPException:
+            raise
+        except (httpx.HTTPError, ValueError, KeyError):
+            raise HTTPException(status_code=502, detail="Could not complete the Twitch API request.")
+
+    if not file_url:
+        raise HTTPException(status_code=403, detail="Twitch did not provide a download URL for this clip.")
+
+    # Only accept HTTPS URLs on Twitch's official CDN domains.
+    signed = urlparse(file_url)
+    signed_host = (signed.hostname or "").lower().rstrip(".")
+    if signed.scheme != "https" or not any(
+        signed_host == domain or signed_host.endswith("." + domain)
+        for domain in ("twitchcdn.net", "twitch.tv")
+    ):
+        raise HTTPException(status_code=502, detail="Twitch returned an unexpected download host.")
+
+    return clip, file_url
+
+
+# -------------------------------------------------------------------
 # HEALTH AND PLATFORM INSPECTION
 # -------------------------------------------------------------------
 
@@ -335,6 +434,7 @@ def health():
         "service": "ILU HD API",
         "version": VERSION,
         "vimeo_configured": bool(VIMEO_ACCESS_TOKEN),
+        "twitch_configured": twitch_is_configured(),
     }
 
 
@@ -365,6 +465,26 @@ def inspect(
                     "with the required scopes. Downloads are available only "
                     "when Vimeo supplies an authorized download link."
                 )
+            ),
+        }
+
+    if platform == "Twitch":
+        slug = extract_twitch_clip_slug(parsed)
+        configured = twitch_is_configured() and bool(slug)
+        return {
+            "platform": platform,
+            "host": host,
+            "download_available": configured,
+            "integration_required": not configured,
+            "provider": "twitch" if configured else None,
+            "message": (
+                "Twitch clip detected. The official download API is configured; "
+                "Twitch will still verify that the configured account is the "
+                "broadcaster or an authorized channel editor."
+                if configured else
+                "Twitch detected. Clip downloads require a Twitch user access token "
+                "with editor:manage:clips or channel:manage:clips, and the token "
+                "owner must be the broadcaster or an authorized editor."
             ),
         }
 
@@ -460,6 +580,22 @@ async def info(
                 "Official Vimeo download link. Vimeo signed links are "
                 "temporary and are requested again when you start a download."
             ),
+        }
+
+    if platform == "Twitch":
+        clip, _ = await get_twitch_clip_download(parsed)
+        return {
+            "provider": "twitch",
+            "host": host,
+            "filename": safe_filename((clip.get("title") or "twitch-clip") + ".mp4"),
+            "content_type": "video/mp4",
+            "size_bytes": None,
+            "size_mb": None,
+            "format": "MP4",
+            "duration": clip.get("duration"),
+            "thumbnail": clip.get("thumbnail_url"),
+            "quality": "Official Twitch clip download",
+            "note": "Twitch supplied an authorized temporary clip download URL. Availability depends on the configured broadcaster/editor account.",
         }
 
     validate_direct_host(host)
@@ -575,6 +711,14 @@ async def download(
         # We do not fetch arbitrary user-provided CDN URLs on the server.
         return RedirectResponse(
             url=selected["link"],
+            status_code=302,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    if platform == "Twitch":
+        _, signed_url = await get_twitch_clip_download(parsed)
+        return RedirectResponse(
+            url=signed_url,
             status_code=302,
             headers={"Cache-Control": "no-store"},
         )
