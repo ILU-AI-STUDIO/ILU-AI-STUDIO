@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse, HTMLResponse
 from starlette.background import BackgroundTask
 
-VERSION = "4.4.0"
+VERSION = "4.4.1"
 USER_AGENT = "ILU-HD/4.4"
 VIMEO_API = "https://api.vimeo.com"
 
@@ -529,21 +529,30 @@ class PublicVideoMetaParser(HTMLParser):
             content = values.get("content", "").strip()
             if content and prop in {
                 "og:video", "og:video:url", "og:video:secure_url",
-                "twitter:player:stream",
+                "twitter:player:stream", "video", "contenturl",
             }:
                 self.video_urls.append(content)
             elif content and prop in {"og:title", "twitter:title"} and not self.title:
                 self.title = content
         elif tag in {"video", "source"}:
-            src = (values.get("src") or values.get("data-src") or "").strip()
-            if src:
-                self.video_urls.append(src)
+            # Some public sites publish the media URL in lazy-loading attributes.
+            for key in ("src", "data-src", "data-video-url", "data-original"):
+                src = (values.get(key) or "").strip()
+                if src:
+                    self.video_urls.append(src)
+            # A few standards-based players publish multiple candidate URLs in srcset.
+            for key in ("srcset", "data-srcset"):
+                raw_set = (values.get(key) or "").strip()
+                if raw_set:
+                    for entry in raw_set.split(","):
+                        candidate = entry.strip().split()
+                        if candidate:
+                            self.video_urls.append(candidate[0])
         elif tag == "link":
             rel = {item.lower() for item in values.get("rel", "").split()}
-            if "preload" in rel and values.get("as", "").lower() == "video":
-                href = values.get("href", "").strip()
-                if href:
-                    self.video_urls.append(href)
+            href = values.get("href", "").strip()
+            if href and (("preload" in rel and values.get("as", "").lower() == "video") or "video_src" in rel):
+                self.video_urls.append(href)
         elif tag == "script" and "ld+json" in values.get("type", "").lower():
             self._jsonld_depth = 1
             self._jsonld_parts = []
