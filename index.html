@@ -1,45 +1,836 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080b14"><meta name="description" content="ILU HD video downloader and media information">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080b14">
+<meta name="description" content="ILU HD video downloader and media information">
 <title>ILU HD</title>
+
 <style>
-:root{color-scheme:dark;--bg:#080b14;--panel:#111827;--line:#29364d;--muted:#9eabc0;--blue:#36a4ff;--purple:#925cff}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:22px;background:radial-gradient(ellipse at 50% 0,#1a2850 0%,var(--bg) 58%);color:#f7f9ff;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center}
-main{width:min(720px,100%)}header{text-align:center;margin-bottom:26px}.logo{font-size:clamp(48px,12vw,72px);font-weight:950;letter-spacing:-5px;line-height:1;background:linear-gradient(100deg,#fff 10%,#58b7ff 52%,#a77aff 90%);background-clip:text;color:transparent}.tag{color:var(--muted);font-size:12px;letter-spacing:2px;margin-top:9px}
-.card{padding:clamp(20px,5vw,34px);border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#151f33f2,#0c122ff2);box-shadow:0 24px 80px #0008}h1{font-size:22px;margin:0 0 6px}.desc{color:var(--muted);font-size:13px;margin:0 0 24px}label{display:block;font-size:12px;font-weight:750;letter-spacing:1px;margin-bottom:9px;color:#cad7ec}
-.row{display:flex;gap:10px;flex-wrap:wrap}input{flex:1;min-width:0;padding:15px;border-radius:12px;border:1px solid #34435d;background:#080e1b;color:white;font:inherit;outline:none}input:focus{border-color:var(--blue);box-shadow:0 0 0 3px #36a4ff22}
-button{border:0;border-radius:12px;padding:0 23px;min-height:52px;color:white;font-weight:800;background:linear-gradient(100deg,#168de8,#8052ef)}button:disabled{opacity:.5}
-.status{display:none;margin-top:16px;padding:13px;border-radius:12px;border:1px solid var(--line);font-size:13px;overflow-wrap:anywhere}.status.show{display:block}.status.error{border-color:#8f3947;color:#ffb9c2}.status.ok{border-color:#286b59;color:#a9f0d7}
-.details{display:none;margin-top:16px;padding:16px;border:1px solid var(--line);border-radius:14px;background:#080e1b}.details.show{display:block}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}.item{padding:10px;background:#111a2b;border-radius:10px}.item small{display:block;color:var(--muted);font-size:11px}.item strong{overflow-wrap:anywhere}.actions{display:flex;gap:10px;flex-wrap:wrap}.secondary{background:#26364f}.hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:16px}.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}.pill{border:1px solid #34435d;color:#c3d0e3;border-radius:999px;padding:7px 11px;font-size:11px}footer{text-align:center;color:#65748d;font-size:11px;margin-top:20px}
-@media(max-width:520px){.row{display:grid}button{width:100%}.card{border-radius:19px}.grid{grid-template-columns:1fr}}
-</style></head><body><main>
-<header><div class="logo">ILU HD</div><div class="tag">YOUR VIDEOS. YOUR QUALITY.</div></header>
-<section class="card"><h1>Video Downloader</h1><p class="desc">Paste a supported direct video URL to check its details and download availability.</p>
-<form id="form"><label for="url">VIDEO LINK</label><div class="row"><input id="url" type="url" placeholder="https://example.com/video.mp4" required autocomplete="url"><button id="check" type="submit">Check link</button></div></form>
+:root{
+ color-scheme:dark;
+ --bg:#080b14;
+ --panel:#111827;
+ --line:#29364d;
+ --muted:#9eabc0;
+ --blue:#36a4ff;
+ --purple:#925cff;
+ --green:#35d6a1;
+}
+*{box-sizing:border-box}
+
+body{
+ margin:0;
+ min-height:100vh;
+ padding:22px;
+ background:radial-gradient(ellipse at 50% 0,#1a2850 0%,var(--bg) 58%);
+ color:#f7f9ff;
+ font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;
+ display:grid;
+ place-items:center;
+}
+
+main{width:min(720px,100%)}
+
+header{text-align:center;margin-bottom:26px}
+
+.logo{
+ font-size:clamp(48px,12vw,72px);
+ font-weight:950;
+ letter-spacing:-5px;
+ line-height:1;
+ background:linear-gradient(100deg,#fff 10%,#58b7ff 52%,#a77aff 90%);
+ background-clip:text;
+ color:transparent;
+}
+
+.tag{
+ color:var(--muted);
+ font-size:12px;
+ letter-spacing:2px;
+ margin-top:9px;
+}
+
+.card{
+ padding:clamp(20px,5vw,34px);
+ border:1px solid var(--line);
+ border-radius:24px;
+ background:linear-gradient(145deg,#151f33f2,#0c122ff2);
+ box-shadow:0 24px 80px #0008;
+}
+
+h1{font-size:22px;margin:0 0 6px}
+
+.desc{
+ color:var(--muted);
+ font-size:13px;
+ margin:0 0 24px;
+}
+
+label{
+ display:block;
+ font-size:12px;
+ font-weight:750;
+ letter-spacing:1px;
+ margin-bottom:9px;
+ color:#cad7ec;
+}
+
+.row{
+ display:flex;
+ gap:10px;
+ flex-wrap:wrap;
+}
+
+input{
+ flex:1;
+ min-width:0;
+ padding:15px;
+ border-radius:12px;
+ border:1px solid #34435d;
+ background:#080e1b;
+ color:white;
+ font:inherit;
+ outline:none;
+}
+
+input:focus{
+ border-color:var(--blue);
+ box-shadow:0 0 0 3px #36a4ff22;
+}
+
+button{
+ border:0;
+ border-radius:12px;
+ padding:0 23px;
+ min-height:52px;
+ color:white;
+ font-weight:800;
+ background:linear-gradient(100deg,#168de8,#8052ef);
+ cursor:pointer;
+}
+
+button:disabled{opacity:.5;cursor:not-allowed}
+
+.secondary{background:#26364f}
+
+.cancel{
+ background:linear-gradient(100deg,#d83d54,#a91d39);
+}
+
+.status{
+ display:none;
+ margin-top:16px;
+ padding:13px;
+ border-radius:12px;
+ border:1px solid var(--line);
+ font-size:13px;
+ overflow-wrap:anywhere;
+}
+
+.status.show{display:block}
+.status.error{border-color:#8f3947;color:#ffb9c2}
+.status.ok{border-color:#286b59;color:#a9f0d7}
+
+.details{
+ display:none;
+ margin-top:16px;
+ padding:16px;
+ border:1px solid var(--line);
+ border-radius:14px;
+ background:#080e1b;
+}
+
+.details.show{display:block}
+
+.grid{
+ display:grid;
+ grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:12px;
+ margin:12px 0;
+}
+
+.item{
+ padding:10px;
+ background:#111a2b;
+ border-radius:10px;
+}
+
+.item small{
+ display:block;
+ color:var(--muted);
+ font-size:11px;
+}
+
+.item strong{overflow-wrap:anywhere}
+
+.actions{
+ display:flex;
+ gap:10px;
+ flex-wrap:wrap;
+}
+
+.hint{
+ font-size:12px;
+ color:var(--muted);
+ line-height:1.6;
+ margin-top:16px;
+}
+
+/* DOWNLOAD PROGRESS */
+
+.progress-box{
+ display:none;
+ margin-top:20px;
+ padding:17px;
+ border:1px solid var(--line);
+ background:#080e1b;
+ border-radius:15px;
+}
+
+.progress-box.show{display:block}
+
+.progress-top{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ gap:10px;
+ margin-bottom:12px;
+}
+
+.progress-title{
+ font-size:13px;
+ font-weight:800;
+}
+
+.percent{
+ color:#65baff;
+ font-size:20px;
+ font-weight:900;
+}
+
+.progress-track{
+ width:100%;
+ height:10px;
+ background:#202c40;
+ border-radius:20px;
+ overflow:hidden;
+}
+
+.progress-fill{
+ width:0%;
+ height:100%;
+ background:linear-gradient(90deg,#168de8,#925cff);
+ border-radius:20px;
+ transition:width .15s linear;
+}
+
+.progress-info{
+ display:grid;
+ grid-template-columns:repeat(2,1fr);
+ gap:10px;
+ margin-top:15px;
+}
+
+.progress-stat{
+ background:#111a2b;
+ padding:10px;
+ border-radius:10px;
+}
+
+.progress-stat small{
+ display:block;
+ color:var(--muted);
+ font-size:11px;
+}
+
+.progress-stat strong{
+ font-size:14px;
+}
+
+.progress-actions{
+ display:flex;
+ gap:10px;
+ margin-top:15px;
+}
+
+.progress-actions button{flex:1}
+
+.pills{
+ display:flex;
+ gap:8px;
+ flex-wrap:wrap;
+ margin-top:22px;
+}
+
+.pill{
+ border:1px solid #34435d;
+ color:#c3d0e3;
+ border-radius:999px;
+ padding:7px 11px;
+ font-size:11px;
+}
+
+footer{
+ text-align:center;
+ color:#65748d;
+ font-size:11px;
+ margin-top:20px;
+}
+
+@media(max-width:520px){
+ .row{display:grid}
+ button{width:100%}
+ .card{border-radius:19px}
+ .grid{grid-template-columns:1fr}
+ .progress-actions{display:grid}
+}
+</style>
+</head>
+
+<body>
+<main>
+
+<header>
+ <div class="logo">ILU HD</div>
+ <div class="tag">YOUR VIDEOS. YOUR QUALITY.</div>
+</header>
+
+<section class="card">
+
+<h1>Video Downloader</h1>
+
+<p class="desc">
+Paste a supported direct video URL to check its details and download availability.
+</p>
+
+<form id="form">
+ <label for="url">VIDEO LINK</label>
+
+ <div class="row">
+  <input
+   id="url"
+   type="url"
+   placeholder="https://example.com/video.mp4"
+   required
+   autocomplete="url"
+  >
+
+  <button id="check" type="submit">
+   Check link
+  </button>
+ </div>
+</form>
+
 <div id="status" class="status" role="status" aria-live="polite"></div>
-<section id="details" class="details" aria-live="polite"><h2 style="font-size:17px;margin:0">Video Information</h2><div class="grid">
-<div class="item"><small>File name</small><strong id="filename">-</strong></div><div class="item"><small>Format</small><strong id="format">-</strong></div><div class="item"><small>File size</small><strong id="size">Not provided</strong></div><div class="item"><small>Duration</small><strong id="duration">Not provided</strong></div></div>
-<div class="actions"><button id="download" type="button">Download video</button></div><p class="hint" id="note"></p></section>
-<div class="pills"><span class="pill">No login</span><span class="pill">No ads</span><span class="pill">iPhone + Android</span><span class="pill">Video information</span></div>
-<p class="hint">Only direct video-file links from hostnames enabled by the site owner are supported. Social media page links may be identified but are not automatically downloadable. Download only content you own or are authorized to save. Private or DRM-protected content is not supported.</p></section>
-<footer>ILU HD · Personal edition</footer></main>
+
+<section id="details" class="details">
+
+<h2 style="font-size:17px;margin:0">
+Video Information
+</h2>
+
+<div class="grid">
+
+ <div class="item">
+  <small>File name</small>
+  <strong id="filename">-</strong>
+ </div>
+
+ <div class="item">
+  <small>Format</small>
+  <strong id="format">-</strong>
+ </div>
+
+ <div class="item">
+  <small>File size</small>
+  <strong id="size">Not provided</strong>
+ </div>
+
+ <div class="item">
+  <small>Duration</small>
+  <strong id="duration">Not provided</strong>
+ </div>
+
+</div>
+
+<div class="actions">
+ <button id="download" type="button">
+  Download video
+ </button>
+</div>
+
+<p class="hint" id="note"></p>
+
+</section>
+
+<!-- DOWNLOAD PROGRESS -->
+
+<section id="progressBox" class="progress-box">
+
+ <div class="progress-top">
+  <span class="progress-title" id="progressTitle">
+   Downloading video...
+  </span>
+
+  <span class="percent" id="percent">0%</span>
+ </div>
+
+ <div class="progress-track">
+  <div id="progressFill" class="progress-fill"></div>
+ </div>
+
+ <div class="progress-info">
+
+  <div class="progress-stat">
+   <small>Downloaded</small>
+   <strong id="downloaded">0 MB</strong>
+  </div>
+
+  <div class="progress-stat">
+   <small>Total size</small>
+   <strong id="totalSize">Unknown</strong>
+  </div>
+
+  <div class="progress-stat">
+   <small>Download speed</small>
+   <strong id="speed">0 MB/s</strong>
+  </div>
+
+  <div class="progress-stat">
+   <small>Status</small>
+   <strong id="downloadState">Preparing...</strong>
+  </div>
+
+ </div>
+
+ <div class="progress-actions">
+  <button id="cancel" class="cancel" type="button">
+   Cancel Download
+  </button>
+ </div>
+
+</section>
+
+<div class="pills">
+ <span class="pill">No login</span>
+ <span class="pill">No ads</span>
+ <span class="pill">iPhone + Android</span>
+ <span class="pill">Video information</span>
+</div>
+
+<p class="hint">
+Only direct video-file links from hostnames enabled by the site owner are supported.
+Social media page links are not automatically downloadable.
+Download only content you own or are authorized to save.
+Private or DRM-protected content is not supported.
+</p>
+
+</section>
+
+<footer>ILU HD · Personal edition · v2.3.0</footer>
+
+</main>
+
 <script>
 const API_BASE="https://ilu-ai-studio.onrender.com";
-const form=document.getElementById("form"),input=document.getElementById("url"),check=document.getElementById("check"),statusBox=document.getElementById("status"),details=document.getElementById("details"),download=document.getElementById("download");
+
+const form=document.getElementById("form");
+const input=document.getElementById("url");
+const check=document.getElementById("check");
+const statusBox=document.getElementById("status");
+const details=document.getElementById("details");
+const downloadBtn=document.getElementById("download");
+const cancelBtn=document.getElementById("cancel");
+
+const progressBox=document.getElementById("progressBox");
+const progressFill=document.getElementById("progressFill");
+const percent=document.getElementById("percent");
+
 let currentUrl="";
-function status(message,kind=""){statusBox.className="status show"+(kind?" "+kind:"");statusBox.textContent=message;}
-function bytes(n){if(n==null)return "Not provided";const u=["B","KB","MB","GB"];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return v.toFixed(i?2:0)+" "+u[i];}
-form.addEventListener("submit",async e=>{e.preventDefault();details.classList.remove("show");let target;try{target=new URL(input.value.trim());if(target.protocol!=="https:"||target.username||target.password)throw Error("Enter a valid HTTPS video URL.");}catch(err){status(err.message||"Invalid URL.","error");return;}
-check.disabled=true;check.textContent="Checking...";status("Identifying link and checking video information...");
-try{const inspect=await fetch(API_BASE+"/inspect?url="+encodeURIComponent(target.href));const r=await inspect.json();if(!inspect.ok)throw Error(r.detail||"Could not inspect this link.");
-if(["youtube","instagram","facebook"].includes(r.platform)){status(r.message,"error");return;}
-if(!r.download_available){status(r.message||"This hostname is not enabled for downloads.","error");return;}
-const infoResponse=await fetch(API_BASE+"/info?url="+encodeURIComponent(target.href));const info=await infoResponse.json();if(!infoResponse.ok)throw Error(info.detail||"Video information is unavailable.");
-currentUrl=target.href;document.getElementById("filename").textContent=info.filename||"-";document.getElementById("format").textContent=info.format||"-";document.getElementById("size").textContent=bytes(info.size_bytes);document.getElementById("duration").textContent=info.duration||"Not provided";document.getElementById("note").textContent=info.note||"";details.classList.add("show");status("Supported direct video link. Video information loaded.","ok");
-}catch(err){status(err.message||"Could not connect to ILU HD. Wait a moment and try again.","error");}
-finally{check.disabled=false;check.textContent="Check link";}
+let controller=null;
+let downloading=false;
+
+function status(message,kind=""){
+ statusBox.className="status show"+(kind?" "+kind:"");
+ statusBox.textContent=message;
+}
+
+function bytes(n){
+ if(n==null)return "Unknown";
+
+ const u=["B","KB","MB","GB"];
+ let i=0,v=n;
+
+ while(v>=1024&&i<u.length-1){
+  v/=1024;
+  i++;
+ }
+
+ return v.toFixed(i?2:0)+" "+u[i];
+}
+
+function speedFormat(n){
+ return (n/1024/1024).toFixed(2)+" MB/s";
+}
+
+function notify(message){
+ if("Notification" in window && Notification.permission==="granted"){
+  try{
+   new Notification("ILU HD",{body:message});
+  }catch(e){}
+ }
+}
+
+function getFilename(disposition,fallback){
+ if(disposition){
+  const utf=disposition.match(/filename\*=UTF-8''([^;]+)/i);
+
+  if(utf){
+   try{return decodeURIComponent(utf[1]);}catch(e){}
+  }
+
+  const normal=disposition.match(/filename="?([^";]+)"?/i);
+
+  if(normal)return normal[1];
+ }
+
+ return fallback||"ilu-hd-video";
+}
+
+function resetProgress(){
+ progressFill.style.width="0%";
+ percent.textContent="0%";
+
+ document.getElementById("downloaded").textContent="0 MB";
+ document.getElementById("totalSize").textContent="Unknown";
+ document.getElementById("speed").textContent="0 MB/s";
+ document.getElementById("downloadState").textContent="Preparing...";
+ document.getElementById("progressTitle").textContent="Downloading video...";
+}
+
+form.addEventListener("submit",async e=>{
+
+ e.preventDefault();
+
+ if(downloading)return;
+
+ details.classList.remove("show");
+
+ let target;
+
+ try{
+  target=new URL(input.value.trim());
+
+  if(
+   target.protocol!=="https:"||
+   target.username||
+   target.password
+  ){
+   throw Error("Enter a valid HTTPS video URL.");
+  }
+
+ }catch(err){
+  status(err.message||"Invalid URL.","error");
+  return;
+ }
+
+ check.disabled=true;
+ check.textContent="Checking...";
+
+ status("Identifying link and checking video information...");
+
+ try{
+
+  const inspect=await fetch(
+   API_BASE+"/inspect?url="+encodeURIComponent(target.href)
+  );
+
+  const r=await inspect.json();
+
+  if(!inspect.ok)throw Error(r.detail||"Could not inspect this link.");
+
+  if(["youtube","instagram","facebook"].includes(r.platform)){
+   status(r.message,"error");
+   return;
+  }
+
+  if(!r.download_available){
+   status(r.message||"This hostname is not enabled for downloads.","error");
+   return;
+  }
+
+  const infoResponse=await fetch(
+   API_BASE+"/info?url="+encodeURIComponent(target.href)
+  );
+
+  const info=await infoResponse.json();
+
+  if(!infoResponse.ok){
+   throw Error(info.detail||"Video information is unavailable.");
+  }
+
+  currentUrl=target.href;
+
+  document.getElementById("filename").textContent=info.filename||"-";
+  document.getElementById("format").textContent=info.format||"-";
+  document.getElementById("size").textContent=bytes(info.size_bytes);
+  document.getElementById("duration").textContent=info.duration||"Not provided";
+  document.getElementById("note").textContent=info.note||"";
+
+  details.classList.add("show");
+
+  status("Supported direct video link. Video information loaded.","ok");
+
+ }catch(err){
+
+  status(err.message||"Could not connect to ILU HD.","error");
+
+ }finally{
+
+  check.disabled=false;
+  check.textContent="Check link";
+
+ }
+
 });
-download.addEventListener("click",()=>{if(currentUrl)window.location.assign(API_BASE+"/download?url="+encodeURIComponent(currentUrl));});
-</script></body></html>
+
+
+/* DOWNLOAD WITH LIVE PROGRESS */
+
+downloadBtn.addEventListener("click",async()=>{
+
+ if(!currentUrl||downloading)return;
+
+ if("Notification" in window && Notification.permission==="default"){
+  try{
+   await Notification.requestPermission();
+  }catch(e){}
+ }
+
+ downloading=true;
+ controller=new AbortController();
+
+ downloadBtn.disabled=true;
+ downloadBtn.textContent="Downloading...";
+
+ cancelBtn.disabled=false;
+
+ progressBox.classList.add("show");
+ resetProgress();
+
+ status("Starting video download...");
+
+ let reader=null;
+
+ try{
+
+  const response=await fetch(
+   API_BASE+"/download?url="+encodeURIComponent(currentUrl),
+   {
+    method:"GET",
+    signal:controller.signal
+   }
+  );
+
+  if(!response.ok){
+
+   let message="Download failed.";
+
+   try{
+    const error=await response.json();
+    message=error.detail||message;
+   }catch(e){}
+
+   throw Error(message);
+  }
+
+  if(!response.body){
+   throw Error("Your browser does not support streaming downloads.");
+  }
+
+  const contentLength=Number(response.headers.get("Content-Length"))||0;
+
+  const disposition=response.headers.get("Content-Disposition");
+
+  const filename=getFilename(
+   disposition,
+   document.getElementById("filename").textContent
+  );
+
+  document.getElementById("totalSize").textContent=
+   contentLength?bytes(contentLength):"Unknown";
+
+  reader=response.body.getReader();
+
+  const chunks=[];
+
+  let received=0;
+  let lastTime=Date.now();
+  let lastBytes=0;
+
+  const startTime=Date.now();
+
+  while(true){
+
+   const result=await reader.read();
+
+   if(result.done)break;
+
+   const chunk=result.value;
+
+   chunks.push(chunk);
+
+   received+=chunk.length;
+
+   const now=Date.now();
+   const elapsed=(now-lastTime)/1000;
+
+   if(elapsed>=0.4){
+
+    const currentSpeed=(received-lastBytes)/elapsed;
+
+    document.getElementById("speed").textContent=
+     speedFormat(currentSpeed);
+
+    lastTime=now;
+    lastBytes=received;
+   }
+
+   document.getElementById("downloaded").textContent=
+    bytes(received);
+
+   if(contentLength){
+
+    const progress=Math.min(
+     100,
+     (received/contentLength)*100
+    );
+
+    progressFill.style.width=progress+"%";
+    percent.textContent=Math.floor(progress)+"%";
+
+   }else{
+
+    document.getElementById("progressTitle").textContent=
+     "Downloading · Size unknown";
+
+   }
+
+   document.getElementById("downloadState").textContent=
+    "Downloading";
+
+  }
+
+  if(contentLength && received!==contentLength){
+   throw Error("Download incomplete. Please try again.");
+  }
+
+  if(received===0){
+   throw Error("Downloaded file is empty.");
+  }
+
+  const contentType=response.headers.get("Content-Type")||
+   "application/octet-stream";
+
+  const blob=new Blob(chunks,{type:contentType});
+
+  const objectUrl=URL.createObjectURL(blob);
+
+  const a=document.createElement("a");
+
+  a.href=objectUrl;
+  a.download=filename;
+  a.style.display="none";
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(()=>{
+   URL.revokeObjectURL(objectUrl);
+  },60000);
+
+  progressFill.style.width="100%";
+  percent.textContent="100%";
+
+  document.getElementById("downloaded").textContent=
+   bytes(received);
+
+  document.getElementById("speed").textContent=
+   speedFormat(received/((Date.now()-startTime)/1000||1));
+
+  document.getElementById("downloadState").textContent=
+   "Completed";
+
+  document.getElementById("progressTitle").textContent=
+   "Download completed!";
+
+  status("Video downloaded successfully!","ok");
+
+  notify("Your video download is complete.");
+
+ }catch(err){
+
+  if(err.name==="AbortError"){
+
+   document.getElementById("downloadState").textContent=
+    "Cancelled";
+
+   document.getElementById("progressTitle").textContent=
+    "Download cancelled";
+
+   status("Download cancelled.","error");
+
+  }else{
+
+   document.getElementById("downloadState").textContent=
+    "Failed";
+
+   document.getElementById("progressTitle").textContent=
+    "Download failed";
+
+   status(err.message||"Download failed. Please try again.","error");
+
+   notify("Video download failed.");
+
+  }
+
+ }finally{
+
+  if(reader){
+   try{reader.releaseLock();}catch(e){}
+  }
+
+  controller=null;
+  downloading=false;
+
+  downloadBtn.disabled=false;
+  downloadBtn.textContent="Download video";
+
+  cancelBtn.disabled=true;
+
+ }
+
+});
+
+
+/* CANCEL DOWNLOAD */
+
+cancelBtn.addEventListener("click",()=>{
+
+ if(controller){
+
+  cancelBtn.disabled=true;
+  controller.abort();
+
+ }
+
+});
+
+cancelBtn.disabled=true;
+
+</script>
+</body>
+</html>
