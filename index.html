@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#080b14">
-<meta name="description" content="ILU HD premium video downloader and media information">
-<title>ILU HD v4.1.5 — Premium Video Downloader</title>
+<meta name="description" content="ILU HD video detection, authorized downloads and Instagram public embed preview">
+<title>ILU HD v4.3.1 — Premium Video Downloader</title>
 <style>
 :root{color-scheme:dark;--bg:#070a13;--line:#34435c;--muted:#91a1ba;--text:#f5f8ff}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
@@ -33,7 +33,7 @@ button:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.12)}b
 .platform-badge{display:inline-flex;margin-top:17px;padding:7px 12px;border-radius:30px;font-size:10px;font-weight:900}.badge-supported{color:#9cf0d2;background:#174b3b;border:1px solid #286b59}.badge-unavailable{color:#ffc2ca;background:#50202b;border:1px solid #873847}
 .platform-message{color:#c2cfe3;font-size:13px;line-height:1.7;margin:13px 0 0}.platform-host{color:#8192ac;font-size:11px;margin-top:11px}
 .section-heading{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:900;margin-bottom:14px}.heading-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:#263c60}
-video{display:block;width:100%;max-height:400px;background:#000;border-radius:13px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:15px 0 18px}
+video{display:block;width:100%;max-height:400px;background:#000;border-radius:13px}.instagram-embed{display:none;width:100%;height:min(760px,85vh);min-height:520px;border:0;border-radius:13px;background:#fff}.instagram-embed.show{display:block}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:15px 0 18px}
 .item,.progress-stat{padding:13px;background:#151f31;border:1px solid #ffffff08;border-radius:12px;min-width:0}.item small,.progress-stat small{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}.item strong,.progress-stat strong{display:block;font-size:14px;overflow-wrap:anywhere}
 #download{width:100%;min-height:57px;font-size:15px;background:linear-gradient(100deg,#087fd5,#6550e9,#a14ff1)}
 .hint{font-size:11px;color:var(--muted);line-height:1.7;margin-top:15px}
@@ -54,7 +54,7 @@ video{display:block;width:100%;max-height:400px;background:#000;border-radius:13
 <form id="form"><label for="url">VIDEO LINK</label><div class="row"><input id="url" type="url" placeholder="Paste your video link here..." required autocomplete="url"><button id="check" type="submit">Check link</button></div></form>
 <div id="status" class="status" role="status" aria-live="polite"></div>
 <section id="platformCard" class="platform-card" aria-live="polite"><div class="platform-heading"><div id="platformIcon" class="platform-icon">🔎</div><div><div id="platformName" class="platform-name">Detecting...</div><div class="platform-caption">Platform detection result</div></div></div><div id="platformBadge" class="platform-badge"></div><p id="platformMessage" class="platform-message"></p><div id="platformHost" class="platform-host"></div></section>
-<section id="preview" class="preview"><div class="section-heading"><span class="heading-icon">🎬</span>Video Preview</div><video id="videoPreview" controls playsinline preload="metadata"></video><p class="preview-note" id="previewNote">Preview is available for supported direct video URLs.</p></section>
+<section id="preview" class="preview"><div class="section-heading"><span class="heading-icon">🎬</span>Video Preview</div><video id="videoPreview" controls playsinline preload="metadata"></video><iframe id="instagramEmbed" class="instagram-embed" title="Instagram public Reel preview" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe><p class="preview-note" id="previewNote">Preview is available for supported direct video URLs.</p></section>
 <section id="details" class="details"><div class="section-heading"><span class="heading-icon">📁</span>Video Information</div>
 <div class="grid"><div class="item"><small>File name</small><strong id="filename">-</strong></div><div class="item"><small>Format / Quality</small><strong id="format">-</strong></div><div class="item"><small>File size</small><strong id="size">Not provided</strong></div><div class="item"><small>Duration</small><strong id="duration">Not provided</strong></div></div>
 <div id="qualityWrap" class="quality-wrap" hidden><label for="qualitySelect">VIDEO QUALITY</label><select id="qualitySelect" aria-label="Choose video quality"></select><p class="quality-hint">Choose one of the qualities available in this video playlist.</p></div>
@@ -64,14 +64,14 @@ video{display:block;width:100%;max-height:400px;background:#000;border-radius:13
 <div class="progress-actions"><button id="cancel" class="cancel" type="button">✕ Cancel Download</button></div></section>
 <div class="pills"><span class="pill"><span class="pill-dot"></span>13 Platforms detected</span><span class="pill">🎬 Video preview</span><span class="pill">🔒 Authorized access</span><span class="pill">✨ No ads</span><span class="pill">📱 iPhone + Android</span><span class="pill">⚡ Live progress</span></div>
 <p class="footer-note">Platform detection does not mean downloading is available. ILU HD does not ask visitors to connect Instagram or Facebook accounts. Instagram/Facebook post links cannot generally be converted into official downloadable files without platform authorization. Direct cdninstagram.com and fbcdn.net video-file links can be checked and downloaded when they are still valid and publicly accessible. Vimeo/Twitch integrations may still depend on server-owner API credentials. TikTok official APIs do not provide general video-file downloads. Download only content you own or are authorized to save. Private and DRM-protected content is not supported.</p>
-</section><footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v4.1.5</footer>
+</section><footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v4.3.1</footer>
 </main>
 <script>
 "use strict";
 const API_BASE="https://ilu-ai-studio.onrender.com";
 const $=id=>document.getElementById(id);
 const form=$("form"),input=$("url"),check=$("check"),statusBox=$("status"),details=$("details"),downloadBtn=$("download");
-const platformCard=$("platformCard"),preview=$("preview"),videoPreview=$("videoPreview"),progressBox=$("progressBox");
+const platformCard=$("platformCard"),preview=$("preview"),videoPreview=$("videoPreview"),instagramEmbed=$("instagramEmbed"),progressBox=$("progressBox");
 const qualityWrap=$("qualityWrap"),qualitySelect=$("qualitySelect"),progressFill=$("progressFill"),percent=$("percent"),cancelBtn=$("cancel");
 let currentUrl="",currentProvider="direct",currentHlsHasVariants=false,controller=null,downloading=false;
 const platformIcons={"YouTube":["▶","icon-youtube"],"Instagram":["◎","icon-instagram"],"Facebook":["f","icon-facebook"],"TikTok":["♪","icon-tiktok"],"X (Twitter)":["𝕏","icon-x"],"Vimeo":["v","icon-vimeo"],"Dailymotion":["D","icon-dailymotion"],"Twitch":["▣","icon-twitch"],"Reddit":["●","icon-reddit"],"Snapchat":["👻","icon-snapchat"],"Pinterest":["P","icon-pinterest"],"LinkedIn":["in","icon-linkedin"],"Threads":["@","icon-threads"],"Direct Video":["▶",""],"Direct Video / Other":["▶",""]};
@@ -79,7 +79,7 @@ function setStatus(message,kind=""){statusBox.className="status show"+(kind?" "+
 function showPlatform(result){const name=result.platform||"Unknown platform",cfg=platformIcons[name]||["🔎",""]; $("platformIcon").textContent=cfg[0];$("platformIcon").className="platform-icon "+cfg[1];$("platformName").textContent=name;
  const badge=$("platformBadge");badge.className="platform-badge";if(result.download_available===true){badge.textContent="✓ DOWNLOAD AVAILABLE";badge.classList.add("badge-supported")}else{badge.textContent="DOWNLOAD NOT AVAILABLE";badge.classList.add("badge-unavailable")}
  $("platformMessage").textContent=result.message||"Platform detection completed.";$("platformHost").textContent=result.host?"Detected hostname: "+result.host:"";platformCard.classList.add("show")}
-function clearPreview(){videoPreview.pause();videoPreview.removeAttribute("src");videoPreview.load();preview.classList.remove("show")}
+function clearPreview(){videoPreview.pause();videoPreview.removeAttribute("src");videoPreview.load();instagramEmbed.removeAttribute("src");instagramEmbed.classList.remove("show");videoPreview.style.display="block";preview.classList.remove("show")}
 videoPreview.addEventListener("error",()=>{$("previewNote").textContent="Preview is unavailable in this browser. You can still try downloading the supported file."});
 videoPreview.addEventListener("loadedmetadata",()=>{if(Number.isFinite(videoPreview.duration))$("duration").textContent=Math.floor(videoPreview.duration/60)+":"+String(Math.floor(videoPreview.duration%60)).padStart(2,"0")});
 function bytes(n){if(n==null||!Number.isFinite(Number(n)))return"Unknown";const u=["B","KB","MB","GB"];let i=0,v=Number(n);while(v>=1024&&i<u.length-1){v/=1024;i++}return v.toFixed(i?2:0)+" "+u[i]}
@@ -94,7 +94,19 @@ form.addEventListener("submit",async e=>{
  check.disabled=true;check.textContent="Checking...";setStatus("Identifying platform and checking download availability...","info");
  try{
   const ir=await fetch(API_BASE+"/inspect?url="+encodeURIComponent(target.href));const inspect=await ir.json();if(!ir.ok)throw Error(inspect.detail||"Could not inspect this link.");showPlatform(inspect);
-  if(inspect.download_available!==true){setStatus(inspect.message||"Platform detected, but downloading is not available.","info");return}
+  if(inspect.download_available!==true){
+   if(inspect.platform==="Instagram"&&inspect.embed_url){
+    videoPreview.style.display="none";
+    instagramEmbed.src=API_BASE+inspect.embed_url;
+    instagramEmbed.classList.add("show");
+    $("previewNote").textContent="Official Instagram embed preview. This displays the public post when Instagram permits embedding; it is not a downloadable MP4 file.";
+    preview.classList.add("show");
+    setStatus((inspect.message||"Instagram did not expose a downloadable video file.")+" Official embed preview is shown below when available.","info");
+   }else{
+    setStatus(inspect.message||"Platform detected, but downloading is not available.","info");
+   }
+   return
+  }
   const infR=await fetch(API_BASE+"/info?url="+encodeURIComponent(target.href));const info=await infR.json();if(!infR.ok)throw Error(info.detail||"Video information is unavailable.");
   currentUrl=target.href;currentProvider=info.provider||inspect.provider||"direct";
   $("filename").textContent=info.filename||"-";$("format").textContent=info.quality?(info.format+" · "+info.quality):(info.format||"-");$("size").textContent=bytes(info.size_bytes);
