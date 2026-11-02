@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import os
 import re
 import socket
@@ -16,8 +17,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse, HTMLResponse
 from starlette.background import BackgroundTask
 
-VERSION = "4.3.0"
-USER_AGENT = "ILU-HD/4.3"
+VERSION = "4.4.0"
+USER_AGENT = "ILU-HD/4.4"
 VIMEO_API = "https://api.vimeo.com"
 
 app = FastAPI(title="ILU HD API", version=VERSION)
@@ -510,12 +511,15 @@ def extract_facebook_video_id(parsed) -> str | None:
 
 
 class PublicVideoMetaParser(HTMLParser):
-    """Read only standard Open Graph video metadata from a public HTML page."""
+    """Read public, standards-based video metadata without executing page scripts."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.video_urls = []
         self.title = ""
+        self._jsonld_depth = 0
+        self._jsonld_parts = []
+        self._jsonld_size = 0
 
     def handle_starttag(self, tag, attrs):
         tag = tag.lower()
@@ -523,7 +527,10 @@ class PublicVideoMetaParser(HTMLParser):
         if tag == "meta":
             prop = (values.get("property") or values.get("name") or "").lower()
             content = values.get("content", "").strip()
-            if content and prop in {"og:video", "og:video:url", "og:video:secure_url", "twitter:player:stream"}:
+            if content and prop in {
+                "og:video", "og:video:url", "og:video:secure_url",
+                "twitter:player:stream",
+            }:
                 self.video_urls.append(content)
             elif content and prop in {"og:title", "twitter:title"} and not self.title:
                 self.title = content
@@ -531,6 +538,55 @@ class PublicVideoMetaParser(HTMLParser):
             src = (values.get("src") or values.get("data-src") or "").strip()
             if src:
                 self.video_urls.append(src)
+        elif tag == "link":
+            rel = {item.lower() for item in values.get("rel", "").split()}
+            if "preload" in rel and values.get("as", "").lower() == "video":
+                href = values.get("href", "").strip()
+                if href:
+                    self.video_urls.append(href)
+        elif tag == "script" and "ld+json" in values.get("type", "").lower():
+            self._jsonld_depth = 1
+            self._jsonld_parts = []
+            self._jsonld_size = 0
+
+    def handle_data(self, data):
+        if self._jsonld_depth:
+            self._jsonld_size += len(data)
+            if self._jsonld_size <= 1024 * 1024:
+                self._jsonld_parts.append(data)
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "script" and self._jsonld_depth:
+            raw = "".join(self._jsonld_parts).strip()
+            self._jsonld_depth = 0
+            self._jsonld_parts = []
+            if not raw or len(raw) > 1024 * 1024:
+                return
+            try:
+                payload = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                return
+            self._collect_jsonld(payload)
+
+    def _collect_jsonld(self, value):
+        # Schema.org VideoObject uses contentUrl for the publicly exposed file.
+        # Deliberately do not inspect undocumented/private platform API fields.
+        if isinstance(value, dict):
+            typ = value.get("@type", "")
+            types = typ if isinstance(typ, list) else [typ]
+            if any(str(item).lower() == "videoobject" for item in types):
+                content_url = value.get("contentUrl")
+                if isinstance(content_url, str) and content_url.strip():
+                    self.video_urls.append(content_url.strip())
+                name = value.get("name")
+                if isinstance(name, str) and name.strip() and not self.title:
+                    self.title = name.strip()
+            for child in value.values():
+                if isinstance(child, (dict, list)):
+                    self._collect_jsonld(child)
+        elif isinstance(value, list):
+            for child in value:
+                self._collect_jsonld(child)
 
 
 async def resolve_public_meta_video(parsed, platform: str) -> dict:
