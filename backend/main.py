@@ -3,6 +3,8 @@ import os
 import re
 import socket
 import tempfile
+import shutil
+import subprocess
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from urllib.parse import urljoin
@@ -14,8 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
 from starlette.background import BackgroundTask
 
-VERSION = "4.0.0"
-USER_AGENT = "ILU-HD/4.0"
+VERSION = "4.1.0"
+USER_AGENT = "ILU-HD/4.1"
 VIMEO_API = "https://api.vimeo.com"
 
 app = FastAPI(title="ILU HD API", version=VERSION)
@@ -857,7 +859,7 @@ async def download_hls_as_ts(url: str, host: str, quality_index: int = 0):
 
 
 # -------------------------------------------------------------------
-# LIMITED DASH SUPPORT (STATIC, UNENCRYPTED, MUXED MP4 SEGMENTLIST ONLY)
+# DASH SUPPORT (STATIC, UNENCRYPTED, MUXED MP4; SEGMENTLIST + TEMPLATE)
 # -------------------------------------------------------------------
 
 MAX_DASH_MANIFEST_BYTES = 2 * 1024 * 1024
@@ -902,13 +904,202 @@ def _dash_iso_duration(value: str | None):
     if not match:
         return None
     days, hours, minutes, seconds = (float(x or 0) for x in match.groups())
-    return round(days * 86400 + hours * 3600 + minutes * 60 + seconds, 2)
+    return round(days * 86400 + hours * 3600 + minutes * 60 + seconds, 3)
+
+
+def _dash_same_host_url(base_url: str, relative: str, expected_host: str, label: str) -> str:
+    absolute = urljoin(base_url, relative)
+    parsed, part_host = parse_https_url(absolute)
+    if part_host != expected_host:
+        raise HTTPException(status_code=403, detail=f"DASH {label} must use the same trusted hostname as the MPD.")
+    return parsed.geturl()
+
+
+def _dash_inherited_template(root, period, adaptation, representation):
+    """DASH SegmentTemplate attributes inherit MPD -> Period -> AdaptationSet -> Representation."""
+    merged = {}
+    timeline = None
+    for element in (root, period, adaptation, representation):
+        node = _xml_child(element, "SegmentTemplate")
+        if node is not None:
+            merged.update(node.attrib)
+            candidate = _xml_child(node, "SegmentTimeline")
+            if candidate is not None:
+                timeline = candidate
+    return merged, timeline
+
+
+def _dash_template_expand(template: str, rep_id: str, bandwidth: int, number: int, time_value: int | None = None) -> str:
+    """Expand the safe DASH template tokens; reject unsupported tokens rather than guessing."""
+    marker = "\x00DOLLAR\x00"
+    value = template.replace("$$", marker)
+    token_re = re.compile(r"\$(RepresentationID|Bandwidth|Number|Time)(%0([1-9][0-9]?)d)?\$")
+
+    def sub(match):
+        key, _fmt, width = match.groups()
+        if key == "RepresentationID":
+            raw = rep_id
+        elif key == "Bandwidth":
+            raw = str(bandwidth)
+        elif key == "Number":
+            raw = str(number)
+        else:
+            if time_value is None:
+                raise HTTPException(status_code=415, detail="DASH $Time$ token requires a SegmentTimeline.")
+            raw = str(time_value)
+        if width:
+            return raw.zfill(int(width))
+        return raw
+
+    value = token_re.sub(sub, value)
+    if "$" in value:
+        raise HTTPException(status_code=415, detail="This DASH template contains an unsupported token.")
+    return value.replace(marker, "$")
+
+
+def _dash_template_segments(attrs, timeline, rep_id, bandwidth, period_duration):
+    media_template = attrs.get("media")
+    init_template = attrs.get("initialization")
+    if not media_template or not init_template:
+        raise HTTPException(status_code=415, detail="DASH SegmentTemplate must declare both initialization and media templates.")
+    try:
+        timescale = int(attrs.get("timescale", "1"))
+        start_number = int(attrs.get("startNumber", "1"))
+        if timescale <= 0 or start_number < 0:
+            raise ValueError
+    except ValueError:
+        raise HTTPException(status_code=415, detail="DASH SegmentTemplate has invalid timescale or startNumber.")
+
+    entries = []
+    if timeline is not None:
+        current_number = start_number
+        current_time = 0
+        s_nodes = _xml_children(timeline, "S")
+        if not s_nodes:
+            raise HTTPException(status_code=415, detail="DASH SegmentTimeline is empty.")
+        for idx, node in enumerate(s_nodes):
+            try:
+                duration = int(node.attrib["d"])
+                explicit_t = int(node.attrib.get("t", current_time))
+                repeat = int(node.attrib.get("r", "0"))
+            except (KeyError, ValueError):
+                raise HTTPException(status_code=415, detail="DASH SegmentTimeline contains an invalid S entry.")
+            if duration <= 0 or repeat < -1:
+                raise HTTPException(status_code=415, detail="DASH SegmentTimeline has an invalid duration or repeat count.")
+            if repeat == -1:
+                next_t = None
+                for later in s_nodes[idx + 1:]:
+                    if "t" in later.attrib:
+                        try:
+                            next_t = int(later.attrib["t"])
+                        except ValueError:
+                            raise HTTPException(status_code=415, detail="DASH SegmentTimeline has an invalid next timestamp.")
+                        break
+                if next_t is None:
+                    if period_duration is None:
+                        raise HTTPException(status_code=415, detail="DASH SegmentTimeline uses r=-1 without a known VOD duration.")
+                    next_t = int(period_duration * timescale)
+                repeat = max(0, (next_t - explicit_t + duration - 1) // duration - 1)
+            if repeat > MAX_DASH_SEGMENTS:
+                raise HTTPException(status_code=413, detail="DASH SegmentTimeline repeat exceeds the segment limit.")
+            for offset in range(repeat + 1):
+                entries.append((current_number, explicit_t + offset * duration))
+                current_number += 1
+                if len(entries) > MAX_DASH_SEGMENTS:
+                    raise HTTPException(status_code=413, detail=f"DASH representation exceeds the {MAX_DASH_SEGMENTS}-segment limit.")
+            current_time = explicit_t + (repeat + 1) * duration
+    else:
+        try:
+            duration_units = int(attrs["duration"])
+        except (KeyError, ValueError):
+            raise HTTPException(status_code=415, detail="DASH SegmentTemplate needs either SegmentTimeline or duration.")
+        if duration_units <= 0 or period_duration is None:
+            raise HTTPException(status_code=415, detail="Duration-based DASH SegmentTemplate requires a positive duration and known static VOD duration.")
+        count = int((period_duration * timescale + duration_units - 1) // duration_units)
+        if count < 1 or count > MAX_DASH_SEGMENTS:
+            raise HTTPException(status_code=413, detail=f"DASH representation exceeds the {MAX_DASH_SEGMENTS}-segment limit.")
+        entries = [(start_number + i, i * duration_units) for i in range(count)]
+
+    init_name = _dash_template_expand(init_template, rep_id, bandwidth, start_number, None)
+    segment_names = [
+        _dash_template_expand(media_template, rep_id, bandwidth, number, time_value)
+        for number, time_value in entries
+    ]
+    return init_name, segment_names, len(segment_names)
+
+
+def _dash_parse_track(root, period, adaptation, rep, period_base, mpd_host, duration):
+    """Resolve one DASH representation to ordered init/media URLs."""
+    adaptation_mime = adaptation.attrib.get("mimeType", "").lower()
+    adaptation_codecs = adaptation.attrib.get("codecs", "").lower()
+    mime = rep.attrib.get("mimeType", adaptation_mime).lower()
+    codecs = rep.attrib.get("codecs", adaptation_codecs).lower()
+    adaptation_type = adaptation.attrib.get("contentType", "").lower()
+    codec_tokens = ("avc", "hvc", "hev", "av01", "vp09", "mp4v")
+    audio_tokens = ("mp4a", "ac-3", "ec-3", "opus", "vorbis", "ac-4")
+    has_video = adaptation_type == "video" or mime.startswith("video/") or any(x in codecs for x in codec_tokens)
+    has_audio = adaptation_type == "audio" or mime.startswith("audio/") or any(x in codecs for x in audio_tokens)
+    if not (has_video or has_audio):
+        return None
+
+    rep_base = _dash_base(period_base, adaptation, mpd_host)
+    rep_base = _dash_base(rep_base, rep, mpd_host)
+    init_url = None
+    segment_urls = []
+    seglist = _xml_child(rep, "SegmentList") or _xml_child(adaptation, "SegmentList")
+    if seglist is not None:
+        initialization = _xml_child(seglist, "Initialization")
+        if initialization is None or not initialization.attrib.get("sourceURL"):
+            return None
+        init_url = _dash_same_host_url(rep_base, initialization.attrib["sourceURL"], mpd_host, "initialization segment")
+        for segment in _xml_children(seglist, "SegmentURL"):
+            media = segment.attrib.get("media")
+            if not media:
+                raise HTTPException(status_code=415, detail="DASH SegmentURL is missing its media attribute.")
+            segment_urls.append(_dash_same_host_url(rep_base, media, mpd_host, "media segments"))
+            if len(segment_urls) > MAX_DASH_SEGMENTS:
+                raise HTTPException(status_code=413, detail=f"DASH representation exceeds the {MAX_DASH_SEGMENTS}-segment limit.")
+    else:
+        attrs, timeline = _dash_inherited_template(root, period, adaptation, rep)
+        if not attrs:
+            return None
+        rep_id = rep.attrib.get("id", "")
+        try:
+            bandwidth = int(rep.attrib.get("bandwidth", "0") or 0)
+        except ValueError:
+            raise HTTPException(status_code=415, detail="DASH Representation has an invalid bandwidth value.")
+        init_name, media_names, _count = _dash_template_segments(attrs, timeline, rep_id, bandwidth, duration)
+        init_url = _dash_same_host_url(rep_base, init_name, mpd_host, "initialization segment")
+        segment_urls = [_dash_same_host_url(rep_base, name, mpd_host, "media segments") for name in media_names]
+
+    if not init_url or not segment_urls:
+        return None
+    try:
+        height = int(rep.attrib.get("height", "0") or 0)
+        bandwidth = int(rep.attrib.get("bandwidth", "0") or 0)
+    except ValueError:
+        raise HTTPException(status_code=415, detail="DASH Representation has invalid height or bandwidth metadata.")
+    return {
+        "id": rep.attrib.get("id", ""),
+        "codecs": codecs,
+        "has_video": bool(has_video),
+        "has_audio": bool(has_audio),
+        "height": height,
+        "bandwidth": bandwidth,
+        "init_url": init_url,
+        "segments": segment_urls,
+        "duration": duration,
+        "segment_count": len(segment_urls),
+    }
 
 
 def parse_dash_mpd(text: str, mpd_url: str, mpd_host: str):
-    """Parse a deliberately narrow DASH profile: static MPD, one Period,
-    clear muxed audio+video MP4 Representation(s), explicit SegmentList.
-    SegmentTemplate, DRM, separate audio tracks and live MPDs are rejected.
+    """Parse static, clear DASH VOD using SegmentList or SegmentTemplate/Timeline.
+
+    Supports muxed representations and separate video/audio AdaptationSets.
+    Separate tracks are muxed into MP4 at download time using the bundled ffmpeg
+    executable from imageio-ffmpeg. Live, DRM, cross-host and unbounded content
+    remains unsupported.
     """
     if "<!DOCTYPE" in text.upper() or "<!ENTITY" in text.upper():
         raise HTTPException(status_code=415, detail="DASH XML declarations with entities are not supported.")
@@ -922,8 +1113,6 @@ def parse_dash_mpd(text: str, mpd_url: str, mpd_host: str):
         raise HTTPException(status_code=415, detail="Live or dynamic DASH manifests are not supported.")
     if any(_xml_local(node.tag) == "ContentProtection" for node in root.iter()):
         raise HTTPException(status_code=415, detail="Encrypted or DRM-protected DASH streams are not supported.")
-    if any(_xml_local(node.tag) in {"SegmentTemplate", "SegmentTimeline"} for node in root.iter()):
-        raise HTTPException(status_code=415, detail="This DASH manifest uses SegmentTemplate/Timeline. Only explicit SegmentList VOD is supported.")
     periods = _xml_children(root, "Period")
     if len(periods) != 1:
         raise HTTPException(status_code=415, detail="DASH manifests must contain exactly one Period.")
@@ -931,62 +1120,60 @@ def parse_dash_mpd(text: str, mpd_url: str, mpd_host: str):
     period_base = _dash_base(mpd_url, root, mpd_host)
     period_base = _dash_base(period_base, period, mpd_host)
     mpd_duration = _dash_iso_duration(root.attrib.get("mediaPresentationDuration") or period.attrib.get("duration"))
-    reps = []
+
+    video_tracks, audio_tracks, muxed_tracks = [], [], []
     for adaptation in _xml_children(period, "AdaptationSet"):
-        adaptation_mime = adaptation.attrib.get("mimeType", "").lower()
-        adaptation_type = adaptation.attrib.get("contentType", "").lower()
-        adaptation_codecs = adaptation.attrib.get("codecs", "").lower()
-        if adaptation_type not in {"", "video"} and not adaptation_mime.startswith("video/"):
-            continue
         adaptation_base = _dash_base(period_base, adaptation, mpd_host)
         for rep in _xml_children(adaptation, "Representation"):
-            mime = rep.attrib.get("mimeType", adaptation_mime).lower()
-            codecs = rep.attrib.get("codecs", adaptation_codecs).lower()
-            if not mime.startswith("video/") and "avc" not in codecs and "hvc" not in codecs and "hev" not in codecs:
+            track = _dash_parse_track(root, period, adaptation, rep, period_base, mpd_host, mpd_duration)
+            if not track:
                 continue
-            # Requiring both video and audio codecs avoids silently delivering
-            # a video-only track as though it were a complete video download.
-            has_video = any(token in codecs for token in ("avc", "hvc", "hev", "av01", "vp09"))
-            has_audio = any(token in codecs for token in ("mp4a", "ac-3", "ec-3", "opus"))
-            if not (has_video and has_audio):
-                continue
-            rep_base = _dash_base(adaptation_base, rep, mpd_host)
-            seglist = _xml_child(rep, "SegmentList") or _xml_child(adaptation, "SegmentList")
-            if seglist is None:
-                continue
-            initialization = _xml_child(seglist, "Initialization")
-            if initialization is None or not initialization.attrib.get("sourceURL"):
-                continue
-            init_url = urljoin(rep_base, initialization.attrib["sourceURL"])
-            init_parsed, init_host = parse_https_url(init_url)
-            if init_host != mpd_host:
-                raise HTTPException(status_code=403, detail="DASH initialization segments must use the same trusted hostname as the MPD.")
-            segment_urls = []
-            for segment in _xml_children(seglist, "SegmentURL"):
-                media = segment.attrib.get("media")
-                if not media:
-                    raise HTTPException(status_code=415, detail="DASH SegmentURL is missing its media attribute.")
-                absolute = urljoin(rep_base, media)
-                seg_parsed, seg_host = parse_https_url(absolute)
-                if seg_host != mpd_host:
-                    raise HTTPException(status_code=403, detail="DASH media segments must use the same trusted hostname as the MPD.")
-                segment_urls.append(seg_parsed.geturl())
-                if len(segment_urls) > MAX_DASH_SEGMENTS:
-                    raise HTTPException(status_code=413, detail=f"DASH representation exceeds the {MAX_DASH_SEGMENTS}-segment limit.")
-            if not segment_urls:
-                continue
-            height = int(rep.attrib.get("height", "0") or 0)
-            bandwidth = int(rep.attrib.get("bandwidth", "0") or 0)
-            label = f"{height}p" if height else (f"{round(bandwidth / 1000)} kbps" if bandwidth else f"Quality {len(reps) + 1}")
-            reps.append({
-                "label": label, "height": height, "bandwidth": bandwidth,
-                "init_url": init_parsed.geturl(), "segments": segment_urls,
-                "duration": mpd_duration, "segment_count": len(segment_urls),
-            })
-            if len(reps) > MAX_DASH_REPRESENTATIONS:
-                raise HTTPException(status_code=413, detail=f"DASH MPD exceeds the {MAX_DASH_REPRESENTATIONS}-representation limit.")
+            if track["has_video"] and track["has_audio"]:
+                muxed_tracks.append(track)
+            elif track["has_video"]:
+                video_tracks.append(track)
+            elif track["has_audio"]:
+                audio_tracks.append(track)
+
+    # Prefer an existing muxed representation. Otherwise pair each video
+    # representation with the best declared audio representation.
+    candidates = list(muxed_tracks)
+    if video_tracks:
+        if audio_tracks:
+            audio_tracks.sort(key=lambda item: item["bandwidth"], reverse=True)
+            chosen_audio = audio_tracks[0]
+            for video in video_tracks:
+                paired = dict(video)
+                paired["audio"] = {
+                    "init_url": chosen_audio["init_url"],
+                    "segments": chosen_audio["segments"],
+                    "segment_count": chosen_audio["segment_count"],
+                    "bandwidth": chosen_audio["bandwidth"],
+                }
+                candidates.append(paired)
+        else:
+            # Do not silently create a muted output from video-only DASH.
+            if not muxed_tracks:
+                raise HTTPException(status_code=415, detail="This DASH MPD has separate video but no usable audio track.")
+
+    reps = []
+    for item in candidates:
+        height = item["height"]
+        bandwidth = item["bandwidth"]
+        label = f"{height}p" if height else (f"{round(bandwidth / 1000)} kbps" if bandwidth else f"Quality {len(reps) + 1}")
+        reps.append({
+            "label": label, "height": height, "bandwidth": bandwidth,
+            "init_url": item["init_url"], "segments": item["segments"],
+            "audio": item.get("audio"),
+            "duration": item["duration"], "segment_count": item["segment_count"],
+        })
+        if len(reps) > MAX_DASH_REPRESENTATIONS:
+            raise HTTPException(status_code=413, detail=f"DASH MPD exceeds the {MAX_DASH_REPRESENTATIONS}-representation limit.")
+
     if not reps:
-        raise HTTPException(status_code=415, detail=("No supported DASH representation found. ILU HD currently requires a static, unencrypted, muxed audio/video MP4 Representation with an explicit SegmentList."))
+        raise HTTPException(status_code=415, detail=(
+            "No supported DASH representation found. ILU HD requires static, unencrypted MP4 SegmentList or SegmentTemplate/Timeline VOD with muxed tracks or separate video/audio tracks."
+        ))
     reps.sort(key=lambda item: (item["height"], item["bandwidth"]), reverse=True)
     for index, item in enumerate(reps):
         item["index"] = index
@@ -1025,53 +1212,85 @@ async def get_dash_quality_options(url: str, host: str):
     return parse_dash_mpd(text, url, host)
 
 
+async def _download_dash_track(client, track, host, output_path, total_counter):
+    urls = [track["init_url"], *track["segments"]]
+    with open(output_path, "wb") as output:
+        for part_url in urls:
+            _, part_host = parse_https_url(part_url)
+            if part_host != host:
+                raise HTTPException(status_code=403, detail="DASH parts must remain on the manifest hostname.")
+            validate_public_host(part_host)
+            try:
+                async with client.stream("GET", part_url) as response:
+                    if response.status_code in (301, 302, 303, 307, 308):
+                        raise HTTPException(status_code=400, detail="Redirected DASH media parts are not supported.")
+                    if response.status_code != 200:
+                        raise HTTPException(status_code=502, detail=f"DASH media host returned HTTP {response.status_code}.")
+                    mime = video_content_type(response)
+                    if mime not in {"video/mp4", "audio/mp4", "application/mp4", "video/iso.segment", "audio/iso.segment", "application/octet-stream", "binary/octet-stream"}:
+                        raise HTTPException(status_code=415, detail="Only fragmented MP4 DASH media parts are supported.")
+                    async for chunk in response.aiter_bytes(64 * 1024):
+                        total_counter[0] += len(chunk)
+                        if total_counter[0] > MAX_BYTES:
+                            raise HTTPException(status_code=413, detail="DASH download exceeds the configured download limit.")
+                        output.write(chunk)
+            except HTTPException:
+                raise
+            except httpx.HTTPError:
+                raise HTTPException(status_code=502, detail="Could not download a DASH media part.")
+
+
 async def download_dash_as_mp4(url: str, host: str, quality_index: int = 0):
     reps = await get_dash_quality_options(url, host)
     if quality_index < 0 or quality_index >= len(reps):
         raise HTTPException(status_code=400, detail="Selected DASH quality is not available.")
     selected = reps[quality_index]
-    urls = [selected["init_url"], *selected["segments"]]
-    temp = tempfile.NamedTemporaryFile(prefix="ilu-hd-dash-", suffix=".mp4", delete=False)
-    temp_path = temp.name
-    total = 0
-    timeout = httpx.Timeout(30.0, connect=10.0)
+    work_dir = tempfile.mkdtemp(prefix="ilu-hd-dash-")
+    output_path = os.path.join(work_dir, "output.mp4")
+    video_track_path = os.path.join(work_dir, "video-track.mp4")
+    audio_track_path = os.path.join(work_dir, "audio-track.mp4")
+    total_counter = [0]
+    timeout = httpx.Timeout(45.0, connect=10.0)
     try:
-        with temp:
-            async with httpx.AsyncClient(timeout=timeout, trust_env=False, follow_redirects=False, headers={"User-Agent": USER_AGENT}) as client:
-                for part_url in urls:
-                    _, part_host = parse_https_url(part_url)
-                    if part_host != host:
-                        raise HTTPException(status_code=403, detail="DASH parts must remain on the manifest hostname.")
-                    validate_public_host(part_host)
-                    try:
-                        async with client.stream("GET", part_url) as response:
-                            if response.status_code in (301, 302, 303, 307, 308):
-                                raise HTTPException(status_code=400, detail="Redirected DASH media parts are not supported.")
-                            if response.status_code != 200:
-                                raise HTTPException(status_code=502, detail=f"DASH media host returned HTTP {response.status_code}.")
-                            mime = video_content_type(response)
-                            if mime not in {"video/mp4", "application/mp4", "video/iso.segment", "application/octet-stream"}:
-                                raise HTTPException(status_code=415, detail="Only fragmented MP4 DASH media parts are supported.")
-                            async for chunk in response.aiter_bytes(64 * 1024):
-                                total += len(chunk)
-                                if total > MAX_BYTES:
-                                    raise HTTPException(status_code=413, detail="DASH download exceeds the configured download limit.")
-                                temp.write(chunk)
-                    except HTTPException:
-                        raise
-                    except httpx.HTTPError:
-                        raise HTTPException(status_code=502, detail="Could not download a DASH media part.")
-        if total == 0:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False, follow_redirects=False, headers={"User-Agent": USER_AGENT}) as client:
+            video_track = {"init_url": selected["init_url"], "segments": selected["segments"]}
+            if selected.get("audio"):
+                await _download_dash_track(client, video_track, host, video_track_path, total_counter)
+                await _download_dash_track(client, selected["audio"], host, audio_track_path, total_counter)
+            else:
+                await _download_dash_track(client, video_track, host, output_path, total_counter)
+
+        if selected.get("audio"):
+            try:
+                import imageio_ffmpeg
+                ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+            except Exception:
+                raise HTTPException(status_code=503, detail="Separate DASH audio/video muxing is unavailable. Ensure imageio-ffmpeg is installed in backend requirements.")
+            command = [
+                ffmpeg_exe, "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                "-i", video_track_path, "-i", audio_track_path,
+                "-map", "0:v:0", "-map", "1:a:0", "-c", "copy",
+                "-movflags", "+faststart", output_path,
+            ]
+            try:
+                result = subprocess.run(command, capture_output=True, text=True, timeout=900, check=False)
+            except subprocess.TimeoutExpired:
+                raise HTTPException(status_code=504, detail="DASH audio/video muxing took too long.")
+            if result.returncode != 0 or not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                detail = (result.stderr or "").strip()[-700:]
+                raise HTTPException(status_code=415, detail="Could not mux the DASH audio and video tracks into MP4." + (" " + detail if detail else ""))
+
+        if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
             raise HTTPException(status_code=502, detail="The DASH MPD returned an empty video.")
+        if os.path.getsize(output_path) > MAX_BYTES:
+            raise HTTPException(status_code=413, detail="DASH output exceeds the configured download limit.")
     except Exception:
-        try:
-            os.unlink(temp_path)
-        except OSError:
-            pass
+        shutil.rmtree(work_dir, ignore_errors=True)
         raise
+
     filename = safe_filename(urlparse(url).path.rsplit("/", 1)[-1].rsplit(".", 1)[0] + ".mp4")
-    return FileResponse(temp_path, media_type="video/mp4", filename=filename,
-        background=BackgroundTask(os.unlink, temp_path),
+    return FileResponse(output_path, media_type="video/mp4", filename=filename,
+        background=BackgroundTask(shutil.rmtree, work_dir, True),
         headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}), selected["duration"], selected["segment_count"]
 
 
@@ -1096,7 +1315,11 @@ def health():
         "hls_dash_playlist_download": True,
         "hls_playlist_download": True,
         "dash_playlist_download": True,
-        "dash_support": "static_unencrypted_muxed_mp4_segmentlist_same_host_only",
+        "dash_support": "static_unencrypted_mp4_segmentlist_segmenttemplate_timeline_same_host_only_muxed_or_separate_tracks",
+        "dash_separate_audio_video_support": True,
+        "dash_segmentlist_support": True,
+        "dash_segmenttemplate_support": True,
+        "dash_segmenttimeline_support": True,
         "dash_quality_selection": True,
         "hls_support": "unencrypted_vod_mpegts_same_host_only",
         "hls_quality_selection": True,
@@ -1253,8 +1476,8 @@ async def info(
             "duration": highest["duration"],
             "thumbnail": None,
             "quality": f"{highest['label']} · {highest['segment_count']} segments",
-            "variants": [{k: v for k, v in item.items() if k not in {"init_url", "segments"}} for item in variants],
-            "note": "Static, unencrypted DASH VOD. Only muxed audio/video MP4 SegmentList representations are supported; output is an MP4 file.",
+            "variants": [{k: v for k, v in item.items() if k not in {"init_url", "segments", "audio"}} for item in variants],
+            "note": "Static, unencrypted DASH VOD. SegmentList and SegmentTemplate/Timeline are supported. Separate audio/video tracks are muxed into MP4; output is an MP4 file.",
         }
 
     if is_hls_url(parsed):
