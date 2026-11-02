@@ -238,11 +238,11 @@ footer{text-align:center;color:#64748b;font-size:11px;margin:22px 0 5px;letter-s
 </div>
 
 <p class="footer-note">
-Platform detection does not mean downloading is available. Vimeo downloads require an eligible account, an authorized API token and a download link supplied by Vimeo. Twitch clip downloads require a Twitch user token with the required clip-download scope, and the configured account must be the broadcaster or an authorized channel editor. Other social platforms remain detection-only until an official integration is available. Download only content you own or are authorized to save. Private and DRM-protected content is not supported.
+Platform detection does not mean downloading is available. Vimeo downloads require an eligible account, an authorized API token and a download link supplied by Vimeo. Twitch clip downloads require a Twitch user token with the required clip-download scope, and the configured account must be the broadcaster or an authorized channel editor. Instagram downloads require your connected Professional account; Facebook downloads require a Page-owned video and Page access token. TikTok official APIs support embeds and metadata, not general file downloads. Download only content you own or are authorized to save. Private and DRM-protected content is not supported.
 </p>
 </section>
 
-<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.1.0</footer>
+<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.2.0</footer>
 </main>
 
 <script>
@@ -468,6 +468,12 @@ form.addEventListener("submit",async event=>{
   }else if(currentProvider==="twitch"){
    document.getElementById("previewNote").textContent=
     "Twitch clip details are loaded through its official API. The authorized signed download is requested when you tap Download.";
+  }else if(currentProvider==="instagram"){
+   document.getElementById("previewNote").textContent=
+    "Instagram media is supplied by Meta's API for the connected Professional account. The temporary authorized file URL is requested again when you tap Download.";
+  }else if(currentProvider==="facebook"){
+   document.getElementById("previewNote").textContent=
+    "Facebook media is supplied by Meta's API for a Page-owned video accessible to the connected Page token.";
   }
 
   status(
@@ -475,7 +481,11 @@ form.addEventListener("submit",async event=>{
     ?"Vimeo file information loaded. The official download link will be requested when you tap Download."
     :currentProvider==="twitch"
      ?"Twitch clip information loaded. The official download link will be requested when you tap Download."
-     :"Supported direct video link. Video information loaded.",
+     :currentProvider==="instagram"
+      ?"Instagram authorized media found. Ready to download."
+      :currentProvider==="facebook"
+       ?"Facebook Page-owned video found. Ready to download."
+       :"Supported direct video link. Video information loaded.",
    "ok"
   );
 
@@ -691,6 +701,16 @@ downloadBtn.addEventListener("click",async()=>{
  }
  if(currentProvider==="twitch"){
   downloadTwitchVideo();
+  return;
+ }
+ if(currentProvider==="instagram"||currentProvider==="facebook"){
+  progressBox.classList.add("show");
+  document.getElementById("progressTitle").textContent="Opening authorized Meta video download...";
+  document.getElementById("percent").textContent="—";
+  progressFill.style.width="100%";
+  document.getElementById("downloadState").textContent="Handing off to Meta CDN";
+  status("Opening the temporary media URL returned by Meta. Your browser will handle the download.","info");
+  window.location.assign(API_BASE+"/download?url="+encodeURIComponent(currentUrl));
   return;
  }
 
