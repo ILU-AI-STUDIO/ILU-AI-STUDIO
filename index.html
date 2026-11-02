@@ -238,11 +238,11 @@ footer{text-align:center;color:#64748b;font-size:11px;margin:22px 0 5px;letter-s
 </div>
 
 <p class="footer-note">
-Platform detection does not mean downloading is available. Vimeo downloads require an eligible account, an authorized API token and a download link supplied by Vimeo. Twitch clip downloads require a Twitch user token with the required clip-download scope, and the configured account must be the broadcaster or an authorized channel editor. Instagram downloads require your connected Professional account; Facebook downloads require a Page-owned video and Page access token. TikTok official APIs support embeds and metadata, not general file downloads. Download only content you own or are authorized to save. Private and DRM-protected content is not supported.
+Platform detection does not mean downloading is available. ILU HD does not ask visitors to connect Instagram or Facebook accounts. Instagram/Facebook post links cannot generally be converted into official downloadable files without platform authorization. Direct cdninstagram.com and fbcdn.net video-file links can be checked and downloaded when they are still valid and publicly accessible. Vimeo/Twitch integrations may still depend on server-owner API credentials. TikTok official APIs do not provide general video-file downloads. Download only content you own or are authorized to save. Private and DRM-protected content is not supported.
 </p>
 </section>
 
-<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.2.0</footer>
+<footer><span class="footer-logo">ILU HD</span> · PREMIUM EDITION · v3.3.0</footer>
 </main>
 
 <script>
@@ -470,10 +470,10 @@ form.addEventListener("submit",async event=>{
     "Twitch clip details are loaded through its official API. The authorized signed download is requested when you tap Download.";
   }else if(currentProvider==="instagram"){
    document.getElementById("previewNote").textContent=
-    "Instagram media is supplied by Meta's API for the connected Professional account. The temporary authorized file URL is requested again when you tap Download.";
+    "Direct Instagram CDN video file. The link may expire; no Instagram account connection is used.";
   }else if(currentProvider==="facebook"){
    document.getElementById("previewNote").textContent=
-    "Facebook media is supplied by Meta's API for a Page-owned video accessible to the connected Page token.";
+    "Direct Facebook CDN video file. The link may expire; no Facebook account connection is used.";
   }
 
   status(
@@ -482,9 +482,9 @@ form.addEventListener("submit",async event=>{
     :currentProvider==="twitch"
      ?"Twitch clip information loaded. The official download link will be requested when you tap Download."
      :currentProvider==="instagram"
-      ?"Instagram authorized media found. Ready to download."
+      ?"Direct Instagram media link verified. Ready to download."
       :currentProvider==="facebook"
-       ?"Facebook Page-owned video found. Ready to download."
+       ?"Direct Facebook media link verified. Ready to download."
        :"Supported direct video link. Video information loaded.",
    "ok"
   );
@@ -703,16 +703,7 @@ downloadBtn.addEventListener("click",async()=>{
   downloadTwitchVideo();
   return;
  }
- if(currentProvider==="instagram"||currentProvider==="facebook"){
-  progressBox.classList.add("show");
-  document.getElementById("progressTitle").textContent="Opening authorized Meta video download...";
-  document.getElementById("percent").textContent="—";
-  progressFill.style.width="100%";
-  document.getElementById("downloadState").textContent="Handing off to Meta CDN";
-  status("Opening the temporary media URL returned by Meta. Your browser will handle the download.","info");
-  window.location.assign(API_BASE+"/download?url="+encodeURIComponent(currentUrl));
-  return;
- }
+ 
 
  await downloadDirectVideo();
 });
